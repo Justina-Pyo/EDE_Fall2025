@@ -1,6 +1,6 @@
 title: "2: Reproducibility and Coding Basics"
 subtitle: "Environmental Data Analytics"
-author: "John Fay and Luana Lima | Developed by Kateri Salk"
+author: "Jiyeong Pyo"
 date: "Fall 2025"
 output: pdf_document
 ---
