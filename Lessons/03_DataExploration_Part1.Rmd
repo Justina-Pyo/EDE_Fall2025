@@ -144,11 +144,16 @@ Prior to running this, reset your workspace (Session->Restart R) to ensure it ru
 
 ```{r Setup}
 # Load packages
-
+library(dplyr)
+library(ggplot2)
+library(here)
+library(tidyverse)
 # Confirm working directory
-
+getwd()
 # Load the USGS flow data into a data frame
-
+USGS.flow.data <- read.csv(
+  file = here("./Data/Raw/USGS_Site02085000_Flow_Raw.csv"),
+  stringsAsFactors = TRUE)   
 ```
 
 ---
@@ -198,7 +203,7 @@ summary(USGS.flow.data)  #could point to column only with $
 ```
 
 What happened to blank cells in the spreadsheet when they were imported into R?
-> Answer: 
+> Answer: NA
 
 ### Identify and address issues: Missing Data
 
@@ -310,12 +315,15 @@ USGS.flow.data$datetime <- as.Date(USGS.flow.data$datetime, format = "%Y%m%d")
 
 We just edited our raw dataset into a processed form. We may want to return to this processed dataset later, which will be easier to do if we save it as a spreadsheet. 
 
+```{r}
+dir.create(here("Data", "Processed"), recursive = TRUE)
 
-```{r Saving data}
 write.csv(
   USGS.flow.data, 
-  file = here("./Data/Processed/USGS_Site02085000_Flow_Processed.csv"), 
-  row.names=FALSE)
+  file = here("Data", "Processed", "USGS_Site02085000_Flow_Processed.csv"), 
+  row.names = FALSE
+)
+```
 
 ```
 
