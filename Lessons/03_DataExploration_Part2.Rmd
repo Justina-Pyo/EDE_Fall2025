@@ -3,6 +3,8 @@ title: "3: Data Exploration"
 author: "Environmental Data Analytics | John Fay & Luana Lima"
 date: "Fall 2025"
 output: pdf_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ## Lesson Objectives
@@ -16,7 +18,7 @@ output: pdf_document
 
 Why is data exploration our first step in analyzing a dataset? What information do we gain? How does data exploration aid in our decision-making for data analysis steps further down the pipeline?
 
->Answer: 
+>Answer: data itself has different characters
 
 ---
 
@@ -25,23 +27,30 @@ Why is data exploration our first step in analyzing a dataset? What information 
 ```{r, Setup-Import-Explore, message = FALSE}
 ## -Set up-
 # 1. Load packages (tidyverse, here)
-
+library(tidyverse)
+library(here)
 # 2. Check the working directory
-
+getwd()
+here()
 # 3. Import datasets
-
+USGS.flow.data <- read.csv(
+  file= here("Data", "Processed", "USGS_Site02085000_Flow_Processed.csv"),
+  stringsAsFactors = TRUE,
+  colClasses = c('site_no'='factor')
+)
 ## -Initial Exploration-
 
 #View(USGS.flow.data)
 # Alternate option: click on data frame in Environment tab
 
 #View column names and the structure of the dataset
-
+colnames(USGS.flow.data)
+str(USGS.flow.data)
 # Check our date column: is it a date object?
-
+class(USGS.flow.data$datetime)
 # Change it to a date object and confirm
-
-
+USGS.flow.data$datetime <- as.Date(USGS.flow.data$datetime,format='%Y-%m-%d')
+class(USGS.flow.data$datetime)
 ```
 
 ---
@@ -58,6 +67,9 @@ Visualize count data for categorical variables.
 ```{r, fig.height = 3, fig.width = 4}
 ggplot(data = USGS.flow.data, aes(x = discharge.mean.approval)) +
   geom_bar()
+#aes: x is from certain column
+#discharge: catergorical 
+#geom: bar is created
 ```
 
 ### Histogram (function: geom_histogram)
@@ -67,7 +79,7 @@ Visualize distributions of values for continuous numerical variables. What is ha
 # 
 ggplot(USGS.flow.data) +
   geom_histogram(aes(x = discharge.mean))
-
+#grouping (binwidth starts with 0)
 # 
 ggplot(USGS.flow.data) +
   geom_histogram(aes(x = discharge.mean), binwidth = 10)
@@ -86,7 +98,7 @@ ggplot(USGS.flow.data) +
   geom_histogram(aes(x = gage.height.mean))
 
 ```
-
+ 
 
 ### Frequency line graph (function: geom_freqpoly)
 An alternate to a histogram is a frequency polygon graph (distributions of values for continuous numerical variables). Instead of displaying bars,  counts of continuous variables are displayed as lines. This is advantageous if you want to display multiple variables or categories of variables at once.
@@ -126,7 +138,7 @@ An alternate option is a violin plot, which displays density distributions, some
 ggplot(USGS.flow.data) +
   geom_boxplot(aes(x = gage.height.mean.approval, y = gage.height.mean))
 
-#
+#violion : width: proportional (frequency)
 ggplot(USGS.flow.data) +
   geom_boxplot(aes(x = gage.height.mean, y = discharge.mean, group = cut_width(gage.height.mean, 1)))
 
@@ -145,24 +157,25 @@ ggplot(USGS.flow.data) +
 
 ggplot(USGS.flow.data) +
   geom_point(aes(x = datetime, y = discharge.mean))
+# missing value warning
 ```
 
 Question: under what circumstances would it be beneficial to use each of these graph types (bar plot, histogram, frequency polygon, box-and whisker, violin, scatterplot)?
 
-> Answer: 
+> Answer: scatterplot is 
 
 ## Ending discussion
 What did you learn about the USGS discharge dataset today? What separate insights did the different graph types offer?
-> Answer: 
+> Answer: each graph offers different form with respect of continuous and descrete variables.
 
 
 How can multiple options for data exploration inform our understanding of our data?
 
-> Answer: 
+> Answer: summary can shows the basic discription of the data
 
 
 Do you see any patterns in the USGS data for the Eno River? What might be responsible for those patterns and/or relationships?
 
-> Answer: 
+> Answer: There are a lot of outliars.
 
 
