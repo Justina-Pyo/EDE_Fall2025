@@ -1,0 +1,219 @@
+---
+title: "Lab2: Comparisn of means"
+author: "Jiyeong Pyo, Yui Kikuchi"
+output: HTMI
+---
+
+```{r chunk_1, include=F}
+
+library(moments) #package for skewness
+library(knitr) #package for making tables (kable)
+library(tidyverse) #multiple packages for data wrangling
+library(gt) # a package to make tables
+library(lubridate) # a package to manipulate dates
+library(tidyr)
+library(janitor)
+library(here)
+
+```
+
+
+```{r chunk_2}
+PEC <- read.csv(
+  file=here("~/EDE_Fall2025/Justina/ENV710/PEC_final.csv"), 
+  stringsAsFactors = TRUE
+   )
+PEC_remove <- PEC %>%
+ # mutate(date=ymd(`month_year`))%>% #making date variable
+  group_by(canton,year)%>%
+  count()%>%
+  filter(n<12)
+
+PEC_filtered <-PEC %>% 
+  filter(!((canton=="Chilla" & year==2015) | (canton=="Chilla" & year==2020)|(canton=="Esmeraldas" & year==2020)|(canton=="Olmedo2" & year==2018)))
+
+```
+
+In terms of cleaning the Data, Chilla's first year(2015) and the last year(2020) was missing and Esmeraldas's last year(2020) data was missing. So that the comparison will be excluding these canton.  
+
+[B]
+```{r chunk_3, Filtering PEC high canton}
+PEC_High <- PEC_filtered %>%
+  subset(PEC_filtered$high_adopt==1)
+glimpse(PEC_High)
+```
+```{r}
+ea.summary<-PEC_High |>  
+  
+  summarise(n = length(na.omit(kwh_total)),
+            min=min(kwh_total, na.rm=TRUE),  
+            max=max(kwh_total, na.rm=TRUE),  
+            mean=mean (kwh_total, na.rm=TRUE),
+            stdev=sd(kwh_total, na.rm=TRUE),
+            q25=quantile(kwh_total, 0.25, na.rm=TRUE),
+            q75=quantile(kwh_total, 0.75, na.rm=TRUE),
+            skewness=skewness(kwh_total, na.rm=TRUE))
+
+
+ea.summary 
+```
+```{r, filtering by years}
+PEC_High_filtered <- PEC_High %>%
+  group_by(canton,year)%>%
+  summarise(kwh_total=sum(kwh_total))%>%
+  filter(year=='2015'|year=='2020')
+  
+  
+head(PEC_High_filtered)
+```
+
+```{r}
+PEC_High_filtered_wide<-PEC_High_filtered %>%
+  dplyr::select(canton, year, kwh_total)%>%
+  pivot_wider(names_from = year, values_from = kwh_total) %>%
+  rename(first_year="2015")%>%
+  rename(last_year="2020")
+
+PEC_High_filtered_wide
+```
+
+```{r chunk_6, Paired t-test}
+t.test(PEC_High_filtered_wide$first_year, PEC_High_filtered_wide$last_year,alternative="greater", paired=T)
+```
+```{r}
+PEC_High_filtered_wide<-PEC_High_filtered_wide  |>
+      mutate(diff=last_year-first_year)
+
+head(PEC_High_filtered_wide)
+```
+
+
+```{r,message=FALSE}
+ggplot(data=PEC_High_filtered_wide, aes(x=diff))+
+  geom_histogram(fill="lightblue", col="black")+
+  labs(title="Electricity Consumption Levels in high adoption areas", subtitle = "Difference between 2015 and 2020")+
+  theme_minimal()
+```
+```{r}
+#Null hypothesis: the sample in our case the differences was pulled from a normally distributed population. 
+shapiro.test(PEC_High_filtered_wide$diff)
+skewness(PEC_High_filtered_wide$diff)
+```
+
+
+```{r,checking Logarithmic}
+PEC_High_filtered_wide<-PEC_High_filtered_wide|>
+    mutate(log.first_year=log(first_year),    				       	
+           log.last_year=log(last_year), 
+			     diff.in.log=(log.first_year-log.last_year),
+           log.ratio=log(first_year/last_year))
+head(PEC_High_filtered_wide, 6)
+```
+
+```{r,t-test of logged data}
+t.test(PEC_High_filtered_wide$log.first_year, PEC_High_filtered_wide$log.last_year, paired=TRUE, alternative = "greater")
+```
+
+```{r,shapiro test}
+shapiro.test(PEC_High_filtered_wide$diff.in.log)
+skewness(PEC_High_filtered_wide$diff.in.log)
+```
+
+```{r}
+wilcox.test(PEC_High_filtered_wide$first_year, PEC_High_filtered_wide$last_year, alternative="greater", paired = TRUE)
+```
+
+
+
+[C]
+```{r,filtering }
+PEC_Low <- PEC_filtered %>%
+  subset(PEC_filtered$high_adopt==0)
+glimpse(PEC_Low)
+```
+
+```{r}
+ea.summary<-PEC_Low |>  
+  
+  summarise(n = length(na.omit(kwh_total)),
+            min=min(kwh_total, na.rm=TRUE),  
+            max=max(kwh_total, na.rm=TRUE),  
+            mean=mean (kwh_total, na.rm=TRUE),
+            stdev=sd(kwh_total, na.rm=TRUE),
+            q25=quantile(kwh_total, 0.25, na.rm=TRUE),
+            q75=quantile(kwh_total, 0.75, na.rm=TRUE),
+            skewness=skewness(kwh_total, na.rm=TRUE))
+
+
+ea.summary 
+```
+
+
+```{r, filtering by years}
+PEC_Low_filtered <- PEC_Low %>%
+  group_by(canton,year)%>%
+  summarise(kwh_total=sum(kwh_total))%>%
+  filter(year=='2015'|year=='2020')
+  
+  
+head(PEC_Low_filtered)
+```
+
+```{r}
+PEC_Low_filtered_wide<-PEC_Low_filtered %>%
+  dplyr::select(canton, year, kwh_total)%>%
+  pivot_wider(names_from = year, values_from = kwh_total) %>%
+  rename(first_year="2015")%>%
+  rename(last_year="2020")
+
+PEC_Low_filtered_wide
+```
+
+```{r chunk, Paired t-test}
+t.test(PEC_Low_filtered_wide$first_year, PEC_Low_filtered_wide$last_year,alternative="greater", paired=T)
+```
+
+```{r}
+PEC_Low_filtered_wide<-PEC_Low_filtered_wide  |>
+      mutate(diff=last_year-first_year)
+
+head(PEC_Low_filtered_wide)
+```
+
+```{r,message=FALSE}
+ggplot(data=PEC_Low_filtered_wide, aes(x=diff))+
+  geom_histogram(fill="lightblue", col="black")+
+  labs(title="Electricity Consumption Levels in low adoption areas ", subtitle = "difference between 2015 and 2020")+
+  theme_minimal()
+```
+
+
+```{r}
+shapiro.test(PEC_Low_filtered_wide$diff)
+skewness(PEC_Low_filtered_wide$diff)
+```
+
+```{r,logged values}
+PEC_Low_filtered_wide<-PEC_Low_filtered_wide|>
+    mutate(log.first_year=log(first_year),    				       	
+           log.last_year=log(last_year), 
+			     diff.in.log=(log.first_year-log.last_year),
+           log.ratio=log(first_year/last_year))
+head(PEC_Low_filtered_wide, 6)
+```
+
+```{r}
+t.test(PEC_Low_filtered_wide$log.first_year, PEC_Low_filtered_wide$log.last_year, paired=TRUE, alternative = "greater")
+```
+```{r}
+shapiro.test(PEC_Low_filtered_wide$diff.in.log)
+skewness(PEC_Low_filtered_wide$diff.in.log)
+```
+```{r}
+wilcox.test(PEC_High_filtered_wide$first_year, PEC_High_filtered_wide$last_year, alternative="greater", paired = TRUE)
+```
+
+
+
+
+
