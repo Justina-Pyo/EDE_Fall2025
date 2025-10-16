@@ -1,0 +1,233 @@
+---
+title: "Lab 3: Simple Linear Regression"
+author: "Jiyeong Pyo"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: html_document
+---
+
+
+
+#### Linear Model 1: Variable Selection
+
+```{r libraries,include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(WDI)
+library(readr)
+library(broom)
+library(ggthemes)
+```
+
+
+```{r import GDPpc,include=FALSE}
+wb_data <-
+  WDI(
+    indicator = c("EN.POP.DNST"), 
+    country = "all", 
+    start = 2022, 
+    end = 2022,
+    extra = TRUE
+  )
+
+wb_data <- wb_data %>%
+  filter(region != "Aggregates")
+```
+
+```{r,include=FALSE}
+wb_data <- rename(wb_data, pop_den = EN.POP.DNST)
+glimpse(wb_data)
+```
+
+```{r,include=FALSE}
+wb_data<-wb_data%>%
+  dplyr::select(iso3c, year, pop_den)%>%
+  glimpse()
+```
+
+
+```{r,include=FALSE}
+epi.df<-read_csv("~/EDE_Fall2025/Justina/ENV710/epi2024results.csv")
+head(epi.df)
+```
+
+
+#### Answer the following questions 
+
+**1. Develop one summary statistics table of the two variables using chatGPT to help (10 points)**
+```{r,include=FALSE}
+epi_den.df <- full_join(epi.df, wb_data, by = c("iso" = "iso3c"))
+```
+[Chat GPT soluion]
+
+##Load required libraries
+library(tidyverse)
+library(moments)
+
+##Example data (replace this with your dataset)
+data <- tibble(
+  height = rnorm(100, mean = 170, sd = 10),
+  weight = rnorm(100, mean = 70, sd = 15),
+  age = rpois(100, lambda = 35)
+)
+
+##Define a lookup table for units
+units <- tibble(
+  variable = c("height", "weight", "age"),
+  units = c("cm", "kg", "years")
+)
+
+##Generate summary statistics
+summary_stats <- data %>%
+  pivot_longer(cols = everything(), names_to = "variable", values_to = "value") %>%
+  group_by(variable) %>%
+  summarise(
+    N = sum(!is.na(value)),
+    Mean = mean(value, na.rm = TRUE),
+    Median = median(value, na.rm = TRUE),
+    SD = sd(value, na.rm = TRUE),
+    Skewness = skewness(value, na.rm = TRUE)
+  ) %>%
+  left_join(units, by = "variable") %>%
+  select(variable, units, N, Mean, Median, SD, Skewness)
+
+##Print the summary table
+summary_stats
+
+```{r,echo=FALSE, message=FALSE}
+# Load required libraries
+library(tidyverse)   # for data manipulation and cleaning
+library(moments)     # for calculating skewness
+
+# Define units for each variable
+units <- tibble(
+  variable = c("pop_den", "WPC.new"),
+  units = c("persons per km2", "kg per person per year")
+)
+
+# Create summary statistics table
+summary_table <- epi_den.df %>%
+  pivot_longer(cols = c(pop_den, WPC.new),   # convert selected variables from wide to long format
+               names_to = "variable",        # name column will store the variable names
+               values_to = "value") %>%      # value column will store the variable values
+  group_by(variable) %>%                     # group the data by variable name
+  summarise(
+    N = sum(!is.na(value)),                  # calculate the number of non-missing observations
+    Mean = mean(value, na.rm = TRUE),        # calculate the mean
+    Median = median(value, na.rm = TRUE),    # calculate the median
+    SD = sd(value, na.rm = TRUE),            # calculate the standard deviation
+    Skewness = skewness(value, na.rm = TRUE) # calculate the skewness
+  ) %>%
+  left_join(units, by = "variable") %>%      # merge in the unit information
+  select(variable, units, N, Mean, Median, SD, Skewness)  # arrange columns in the desired order
+
+# Print the summary table
+summary_table  # display the summary statistics table
+ 
+
+```
+
+
+**2. Make a histogram of each of the variables. The histograms should be professional (Economist ready). (10 points)**
+```{r,echo=FALSE,warning=FALSE}
+ggplot()+
+  geom_histogram(epi_den.df,mapping=aes(x=WPC.new),bins=30,color="white",fill="lightblue")+
+  theme_economist_white() +
+  labs(title="The Total Municipal Solid Waste Produced",
+       subtitle = "Waste generated per capita in 2024",
+       x = "Waste generated per capita")+
+  theme(plot.title = element_text(size = 14, face = "bold", color = "Black"))
+
+ggplot()+
+  geom_histogram(epi_den.df,mapping=aes(x=pop_den),bins=50,color="white",fill="lightblue")+
+  theme_economist_white() +
+  labs(title="Distribution of Population Density (persons per km2)",
+       subtitle = "Population density in 2022",
+       x = "Population density (persons per km²)")+
+  theme(plot.title = element_text(size = 14, face = "bold", color = "Black"))
+```
+
+
+**3.	  In words, hypothesize a relationship (conceptually) between the two variables (may include directionality). Also include the null and alternative hypothesis for the population slope parameter that are typically used to make inferences in simple linear regression. (10 points)**
+
+-As population density increases, waste generated per capita is expected to increase since higher population concentrations tend to produce more waste.
+
+-Null Hypothesis: There is no linear relationship between population density and waste generated per capita.
+
+-Alternative Hypothesis: There is a linear relationship between population density and waste generated per capita.
+
+**4.    Calculate the correlation coefficient between the two variables. Interpret. (10 points)**
+```{r,echo=FALSE, warning=FALSE}
+cor<- cor(epi_den.df$WPC.new,
+                  epi_den.df$pop_den,
+                  use = "pairwise.complete.obs")
+cor
+```
+The correlation coefficient between population density and waste generated per capita is -0.07468126. This suggests that as population density increases, waste generated per capita tends to decrease.
+
+**5.	  Develop and discuss the scatterplots between the two variables. Does the relationship look linear or linear-log (or something else)? Should you transform one or both variables? Include your scatterplots (original, transformed) and discussion in your response. Make sure your scatterplots are appropriately labelled. (10 points)**
+
+The scatterplot with original data showed strongly right-skewed where majority of the countries are clustered in lower end. This is why the population density should be changed into logged data for solving skewness. The transformed scatterplot showed more linear negative relationship.
+
+```{r,echo=FALSE, message=FALSE,warning=FALSE}
+options(scipen = 999) #this bit of code turns off scientific notation
+
+p1 <- epi_den.df %>% 
+  ggplot(aes(x = pop_den, y = WPC.new, label = iso))+
+       geom_point(size = 1.5) + 
+       theme_minimal()+
+       labs(title="Waste generated per capita ~ Population Density",
+       x = "Waste Generated per Capita",
+       y= "Population Density (persons per km2)")+
+       ylim(0,100)+
+       geom_text(aes(label = iso), size = 3, vjust=-0.5) 
+p1
+```
+```{r,echo=FALSE, message=FALSE,warning=FALSE}
+epi_den.df <- epi_den.df %>%
+  mutate(log_pop_den = log(pop_den))
+```
+      
+```{r,echo=FALSE, message=FALSE,warning=FALSE}
+options(scipen = 999) #this bit of code turns off scientific notation
+
+p2 <- epi_den.df %>% 
+  ggplot(aes(x = log_pop_den, y = WPC.new, label = iso))+
+       geom_point(size = 1.5) + 
+       theme_minimal()+
+       labs(title="Waste Generated per Capita ~ Log Population Density",
+       x="Log Population Density (persons per km2)",
+       y="Waste generated per capita")+
+       ylim(0,100)+
+       geom_text(aes(label = iso), size = 3, vjust=-0.5) #add text labels
+p2
+```
+      
+**6.    Perform a simple linear regression analysis on the two variables (after transformation, if needed). Make sure that your x and y variables are correct. Write the model equation and interpret the coefficient for the slope, including its significance. (20 points)**
+
+The simple linear regression model is WPC.new=bet_0 + beta_1*Log_pop_den + u(error). After applying log transformation to population density, the model equation is WPC.new =51.432-1.046log_pop_den.The slope indicates that 1% increase in population density will decrease 0.01046% in waste generated per capita. 
+
+```{r,echo=FALSE, message=FALSE}
+model.1 <- lm(WPC.new ~ log_pop_den , data = epi_den.df)
+model.1
+```
+
+```{r,echo=FALSE, message=FALSE}
+summary(model.1)
+```
+
+**7.    Interpret p-value of the slope coefficient in terms of hypothesis in (3) above. (10 points)**
+The p-value(0.395) showed we fail to reject the null hypothesis that beta 1 equals zero. So it turns out there is no significant linear relatoin between two variables. 
+
+
+**8.    Interpret the R-squared value. (10 points)**
+Multiple R-squared:  0.004084 indicates that the logged population density only explain 0.4% of the Waste generation per capita, suggesting a weak relationship.
+
+
+**9.    Discuss the assumptions of simple linear regression as applied to your final model. Are the underlying assumptions of simple linear regression met? (10 points)**
+
+The log-transformed model satisfies the linear assumption and the spread of the residuals seems constant, indicating the homoscedasticity assumption is also met. Considering this data is based on different countries, it is reasonable to assume that the residuals are independent. In short, this simple linear regression model meets the assumptions, even though we fail to reject the null hypothesis.
+
+**Please make sure your knitted html is clean of coding, warnings, and messages.** 
+**Uploaded your knitted html and Rmd to Assignments with LastName_First.html; LastName_First.Rmd**
+
+

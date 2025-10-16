@@ -1,0 +1,232 @@
+---
+title: 'Simple Linear Regression: In Class Exercise'
+author: "Jiyeong Pyo"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+editor_options:
+  chunk_output_type: inline
+---
+
+Welcome to an in class exercise on simple linear regression! 
+
+
+```{r chunk_1}
+library(tidyverse)
+```
+
+Let's clean up our environment.
+
+```{r chunk_2}
+rm(list = ls())
+```
+
+
+#### Yale Program on Climate Communication
+
+Now you should read in the climate belief data (climate.csv) from the Yale Program on Climate Communication: https://climatecommunication.yale.edu/visualizations-data/ycom-us/.
+
+You will work with the variables: GW = global warming.
+**geotype** the unit of observation (e.g., county, state, etc..)
+**geoid** ID for each county
+**geoname** Name of each county
+**gwvoteimp**	Estimated percentage who say a candidate's views on GW are important to their vote
+**priority**	Estimated percentage who say global warming should be a high priority for the next president and Congress
+
+In the dataframe, we will filter only counties.
+
+```{r chunk_3}
+climate.df<-read_csv("~/EDE_Fall2025/Justina/ENV710/climate-1.csv")%>%
+  filter(geotype=="county")
+
+climate.df
+```
+
+
+#### American Community Survey data from the US Census. Read in the acs.csv file with the following variables.
+
+Population Density (Per Sq. Mile)	
+Average Family Income (In 2022 Inflation Adjusted Dollars)	
+Average Commute to Work (In Min)
+
+```{r chunk_4}
+census.df<-read_csv("~/EDE_Fall2025/Justina/ENV710/acs-1.csv")
+census.df
+```
+
+
+Join the datasets together. You will notice that both dataframes have the variable geoid. 
+We will use geoid to join the two dataframes.
+
+```{r chunk_5}
+
+join.df<-census.df%>%
+  inner_join(climate.df, by=join_by(geoid==geoid))%>%
+  mutate(log.pop.dens=log(`Population Density (Per Sq. Mile)`)) #making new variable of log population density.
+  
+```
+
+
+
+### Broad research question
+
+What is the relationship between population density and the percentage of the population who say 
+global warming should be a high priority for the next president and Congress 
+(response variable) in the US? 
+
+
+```{r chunk_6}
+ggplot(data=join.df, aes(x=`Population Density (Per Sq. Mile)`, y=priority))+
+  geom_point()+
+  labs(title = "High Priority of Global Warming ~ Population Density",
+       subtitle = "",
+       caption = "Data sources: American Community Survey (US Census), \n Yale Climate Communication")+
+  xlab("Population density (people/square mile)")+
+  ylab("High Priority to address global warming")
+
+ggplot(data=join.df, aes(x=`log.pop.dens`, y=priority))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  labs(title = "High Priority of Global Warming ~ Log Population Density",
+       subtitle = "",
+       caption = "Data sources: American Community Survey (US Census), \n Yale Climate Communication")+
+  xlab("log population density log(people/square mile)")+
+  ylab("High Priority to address global warming")
+  
+  
+```
+
+**Q1: Discuss the two scatterplots above.**
+The raw data is positively skewed so it violates the assumption 1 while the log data is well- scattered and shows linear relation between population density and priority global warning.  
+
+In the chunk below, run a linear model that is appropriate based on scatterplots above. Name the model model.1.
+Be sure that your X and Y are correctly placed in the lm() function.
+
+```{r chunk_7}
+model.1<-lm(priority~log.pop.dens, data=join.df)
+summary(model.1)
+
+```
+
+
+**Q2: Interpret the estimate on log.pop.dens and its statistical significance. Be clear about the null hypothesis.**
+1% change of population density is associated with an increase in predicted prioritization of climate change by 0.016. (When we do log, we have to times 0.01 to beta->case 1)
+The null hypothesis is that logged population density and the priority regarding high priority of global warming has no correlation(The beta is 0). According to the P value(P <0.0001), we can reject the null hypothesis so there is correlation between variables. 
+
+
+**Q3: Interpret the R-squared value.**
+The r square shows it only explains 15% of the prioritization of climate change.
+
+
+
+Run the chunk below, use the plot() function on the model object to get the Residuals vs Fitted Plot
+
+
+**Q4: Discuss the residual vs fitted plot in terms of the assumptions of OLS.**
+
+The red line would be flatted to meet the assumption 1 but it violates this assumption.
+In terms of homoscedasticity,data are clustered in the range of 40 to 50 so it also violets the homoscedasticity condition. In terms of Independence condition, it may have spatial auto correlation in our residuals. 
+
+
+```{r chunk_8}
+plot(model.1,1)
+```
+
+
+The chunk below develops a scatterplot filters for log population density that 
+are small (<0) and have high priority re global warming.
+
+**Q5: Interpret the scatterplot below.**
+Under predicting their common things in low population density such as Alaska because we are using the population density indicating that we have omitted variable. 
+
+```{r chunk_9}
+low.df<-join.df%>%
+  filter(log.pop.dens<0 & priority > 50)%>%
+  arrange(log.pop.dens)
+low.df
+
+
+ggplot(data=low.df, aes(x=log.pop.dens, y=priority))+
+  geom_point()+
+  geom_text(aes(label=`Qualifying Name`))+
+  xlim(-4, 0.4)+
+  xlab("Log(Population Density)")
+```
+
+
+
+
+**Q6: Discuss the scatterplot below.**
+We neglect the high population density such as California and New York. 
+
+```{r chunk_10}
+high.df<-join.df%>%
+  filter(log.pop.dens>8 & priority > 60)%>%
+  arrange(log.pop.dens)
+high.df
+
+
+ggplot(data=high.df, aes(x=log.pop.dens, y=priority))+
+  geom_point()+
+  geom_text(aes(label=`Qualifying Name`))+
+  xlab("Log(Population Density)")
+```
+
+**Q7: Now it's your turn. Please do the following:**
+
+1. Change up the explanatory variable to median household income.
+```{r}
+join.df<-census.df%>%
+  inner_join(climate.df, by=join_by(geoid==geoid))
+```
+
+2. Develop appropriate hypotheses.
+Null: The Average Family Income is not correlated whith prioritization of climate change. 
+
+3. Develop a scatterplot and discuss.
+```{r}
+ggplot(data=join.df, aes(x=`Average Family Income (In 2022 Inflation Adjusted Dollars)`, y=priority))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  labs(title = "High Priority of Global Warming ~ Log Average Family Income",
+       subtitle = "",
+       caption = "Data sources: American Community Survey (US Census), \n Yale Climate Communication")+
+  xlab("log Average Family Income")+
+  ylab("High Priority to address global warming")
+  
+```
+
+4. Consider log transformation of median household income.
+```{r}
+join.df<-census.df%>%
+  inner_join(climate.df, by=join_by(geoid==geoid))%>%
+  mutate(`Average Family Income (In 2022 Inflation Adjusted Dollars)`=log(`Average Family Income (In 2022 Inflation Adjusted Dollars)`))
+```
+
+5. Run an appropriate model.
+```{r}
+ggplot(data=join.df, aes(x=`Average Family Income (In 2022 Inflation Adjusted Dollars)`, y=priority))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  labs(title = "High Priority of Global Warming ~ Log Average Family Income",
+       subtitle = "",
+       caption = "Data sources: American Community Survey (US Census), \n Yale Climate Communication")+
+  xlab("log Average Family Income")+
+  ylab("High Priority to address global warming")
+```
+
+6. Interpret the coefficient and significance.
+```{r}
+model.1<-lm(priority~`Average Family Income (In 2022 Inflation Adjusted Dollars)`, data=join.df)
+summary(model.1)
+```
+We can reject the null hypothsis. 
+
+7. Interpret R2
+
+It only explains 15% 
+
+8. Discuss residual vs fitted plot.
+
+

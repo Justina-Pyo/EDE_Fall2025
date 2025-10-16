@@ -1,0 +1,377 @@
+---
+title: 'Tutorial 8: Simple Linear Regression'
+author: "Jiyeong Pyo"
+editor_options:
+  markdown:
+    wrap: 72
+output: html_document
+---
+*if beta =0 (null hypothesis), beta =!0: alternative 
+t=beta hat =0 / standard error of beta hat 1
+This tutorial will walk you through the steps of running a simple linear
+regression (SLR) in R. I encourage you to read about Yale's
+Environmental Performance Index (EPI) here:
+<https://epi.envirocenter.yale.edu/>.
+
+### Variables: GDP and Environmental Performance Index (EPI)
+
+For the tutorial we will explore the relationship between GDP per capita
+(GDPpc) and the Yale Environmental Performance Index.
+
+The Environmental Performance Index (EPI.new) is an index for each
+nation on its environmental performance. It is an index combined of
+numerous weighted measures. Read more about the data on the Yale website
+and the technical appendix 
+https://epi.yale.edu/downloads/2024epitechnicalappendix20241207.pdf
+
+
+```{r libraries,include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(WDI)
+library(readr)
+library(broom)
+library(ggthemes)
+```
+
+We will read in the data with read_csv() (a readr function).
+
+```{r import,include=FALSE}
+rm(list=ls()) # removing objects
+epi.df<-read_csv("~/EDE_Fall2025/Justina/ENV710/epi2024results.csv")
+head(epi.df)
+```
+
+### Import GDP per capita data from World Bank (in current USD)
+
+```{r import GDPpc,include=FALSE}
+wb_data <-
+  WDI(
+    indicator = c("NY.GDP.PCAP.CD"), 
+    country = "all", 
+    start = 2024, 
+    end = 2024,
+    extra = TRUE
+  )%>%
+  glimpse()
+
+```
+
+
+
+```{r filter_only_country,include=FALSE}
+wb_data <- wb_data %>%
+  filter(region != "Aggregates") %>% #remove aggregates
+  glimpse()
+```
+
+### Renaming the GDP variable
+
+We will now rename "NY.GDP.PCAP.CD" to gdp_pc. The renamed variable will
+be in the wb_data data frame.
+
+```{r rename,include=FALSE}
+wb_data <- rename(wb_data, gdp_pc = NY.GDP.PCAP.CD)
+glimpse(wb_data)
+```
+
+Let's look at the gdp_pc data to make sure it looks good.
+
+```{r head,include=FALSE}
+head(wb_data, 10)
+```
+
+### Selecting variables that we will keep
+
+Using the head and glimpse functions above, you saw that there are some
+variables that we probably don't need. Let's clean that up by using the
+**select()** function in dplyr. We will select the variables we want
+using select() and then will look at the data frame with the glimpse()
+function.
+
+```{r select,include=FALSE}
+wb_data<-wb_data%>%
+  dplyr::select(iso3c, year, gdp_pc)%>%
+  glimpse()
+```
+
+You should now have three variables in the data frame: iso3c, year, and
+gdp_pc.
+
+### Joining data Using the full_join() function in dplyr
+
+We should now join wb_data with the epi.df using the three letter
+country code that is in both data frames epi.df (iso) and wb_data
+(iso3c). A full join joins all rows that are in either x or y. Call the
+new joined data frame epi_gdp.df.
+
+Read more about the joining functions in dplyr here:
+<https://dplyr.tidyverse.org/reference/mutate-joins.html>
+<https://statisticsglobe.com/r-dplyr-join-inner-left-right-full-semi-anti>
+
+```{r join,include=FALSE}
+epi_gdp.df <- full_join(epi.df, wb_data, by = c("iso" = "iso3c"))
+```
+
+We can now make our scatterplot.
+
+### Scatterplots
+
+You will now make a scatter plot of GDP per capita (x) and EPI.new (Y).
+
+```{r scatter.plot,include=FALSE}
+
+options(scipen = 999) #this bit of code turns off scientific notation
+
+p1 <- epi_gdp.df %>% 
+  ggplot(aes(x = gdp_pc, y = EPI.new, label = iso))+
+       geom_point(size = 1.5) + 
+       theme_minimal()+
+       ylab("Environmental Performance Index")+
+       xlab("Per Capita Gross Domestic Product (USD)")+
+       ylim(0,100)+
+       geom_text(aes(label = iso), size = 3, vjust=-0.5) #add text labels, vjust=vertical justification of labels
+p1
+
+
+```
+
+You can see in the scatterplot that GDP per capita is positively skewed.
+We should take the log of GDP per capita and then make the scatterplot
+with the logged gdp_pc data. Use the mutate() function to add in
+log_gdp_pc to the epi_gdp.df data frame. Do so in the chunk below.
+
+```{r log_gdp,include=FALSE}
+epi_gdp.df <- epi_gdp.df %>%
+  mutate(log_gdp_pc = log(gdp_pc))
+
+```
+
+Develop a scatter plot of EPI.new \~ log_gdp_pc. Notice the units on the
+Y-axis. You can set the limits of the y axis by adding the code:
+ylim(0,100). Use geom_point to add text labels to the plot and set label=iso in the
+aesthetic. Please add appropriate labels for the x- and y-axes.
+
+```{r log_scatter,include=FALSE}
+options(scipen = 999) #this bit of code turns off scientific notation
+
+p2 <- epi_gdp.df %>% 
+  ggplot(aes(x = log_gdp_pc, y = EPI.new, label = iso))+
+       geom_point(size = 1.5) + 
+       theme_minimal()+
+       ylab("Environmental Performance Index")+
+       xlab("Log of Per Capita Gross Domestic Product (USD)")+
+       ylim(0,100)+
+       geom_text(aes(label = iso), size = 3, vjust=-0.5) #add text labels
+p2
+
+```
+
+We could also visualize the original data on a log scale of the x-axis
+by adding scale_x_log10(). This adjusts the scale to log10. 
+
+
+**Q1: What is the advantage of using this approach to visualizing the data vs logging the data and plotting the logged data? Any disadvantages?** The logged data helps to eliminating the skewness so it becomes more linear than the original data. 
+
+```{r log10,include=FALSE}
+p1+scale_x_log10() + 
+  xlab("Per Capita Gross Domestic Product (USD)")
+```
+
+## Calculating correlations
+
+The correlation coefficient (r) is a measure of linear relationship and
+can range between -1 and 1.
+
+Please calculate the correlation coefficients on both the original data
+(EPI.new and gdp_pc) and the (natural) logged data of GDPpc.
+
+The function for correlation coefficient is cor(). For correlations, it
+does not matter which variable you place first. if there are missing
+data, you should use the argument use="pairwise.complete.obs". Please
+type ?cor in the console so you can see the arguments before running the
+chunk below.
+
+```{r correlation,include=FALSE}
+#correlation coefficients for the original data
+cor_original <- cor(epi_gdp.df$EPI.new,
+                    epi_gdp.df$gdp_pc,
+                    use = "pairwise.complete.obs")
+
+cor_original
+
+#correlation coefficients for the logged data of GDPpc
+cor_log <- cor(epi_gdp.df$EPI.new,
+                  epi_gdp.df$log_gdp_pc,
+                  use = "pairwise.complete.obs")
+cor_log
+```
+
+
+
+**Question 2**: What are the two correlation coefficients? Please interpret these
+coefficients. The corelation coefficents means how both EPI and GDP per captia moves together. So it means, in original data, when 1 dollor of GDP per captia increased, EPI increased 0.7188428. In terms of the logged data, when 1 dollor of GDP per captia increased, EPI increased 0.7739801. 
+
+## Simple linear model
+
+The function to run a linear model in R is lm()
+
+To see the arguments of lm() please type ?lm in the console.
+
+The model is written Y~X.
+
+```{r linearmodel}
+model.1 <- lm(EPI.new ~ gdp_pc , data = epi_gdp.df)
+model.1
+```
+
+The output of R gives us the equation for the simple linear model. The
+equation can be written as **Predicted EPI.new = 41.00 + 0.0003437 * GDPpc** 
+
+
+**Question 3: Why do you think the slope is such a small number?**
+
+We can interpret this equation as, a one dollar increase in per capita
+GDP is associated with a 0.0003437 increase in predicted Environmental
+Performance Index. A dollar is such a small amount, so it is probably
+better to interpret in terms of $1000 increase in GDPpc is associated
+with a 0.3437 increase in predicted Environmental Performance Index. I calculated
+this number by multiplying 1000 * 0.0003437.
+
+We can also summarize the model to see the estimates, SE, t, and
+p-values as well as the R-squared value and F-statistic.
+
+```{r summarylm}
+summary(model.1)
+```
+
+The test of significance (a t-test) on the coefficient tests whether the slope of
+the line (of the populations) is zero. There is conclusive evidence to
+suggest that the slope is different than zero (a flat line).
+
+R-squared is the percent of the variation in the Y variable that is explained
+by the X variable. In this case, 51.39%. We won't worry about adjusted R-squared
+and the F statistic until we get to multiple linear regression.
+
+We can now add a linear regression line to the plot. This is the line
+that is drawn by ordinary least squares (OLS). We can use the function
+geom_smooth and the argument method=lm to tell it to draw the line that
+we calculated from a linear model.
+
+This will draw the confidence interval around the line based on the
+linear model.
+
+```{r scatter.lm}
+p3<-ggplot(data=epi_gdp.df, aes(x = gdp_pc, y = EPI.new)) +
+  geom_point() + 
+  geom_smooth(method=lm)+
+  labs(x="GDP per capita (USD)", y="Environmental Performance Index")
+
+p3
+```
+
+**Question 4: Describe the relations between EPI and GPDpc. Is this a linear relationship?**
+It shows the GDP per capita is positivly related with environmental performance index. It shows linear relationship.
+
+
+We should run the simple linear model using the log_gdp_pc data.
+
+```{r,message=FALSE}
+model.2 <- lm(EPI.new ~ log_gdp_pc , data = epi_gdp.df)
+model.2
+summary(model.2)
+```
+
+As you might have guessed, we now have a new equation when we use
+logGDPpc. We no longer have a linear model, but rather what we call a
+linear-log model. To interpret a linear-log model, an increase in x
+(GDPpc) by one percent is associated with an increase in predicted y by
+($\beta$/100) units (EPI).
+
+So, a 1% increase in per capita GDP is associated with a 0.0631 increase
+in predicted EPI. The R-squared is now 0.60.
+
+Let's use the package broom to make a nice tidy tibble of the regression
+results. First I'll turn scientific notation back on.
+
+```{r}
+options(scipen=0) #turn scientific notation back on. I'm turning it back on to get reasonable looking p-values
+tidy(summary(model.2))
+```
+
+Let's make a new scatterplot with the loggedGDPpc data that includes the
+regression line. Please run the chunk below.
+
+```{r scatterlog, include=TRUE,message=FALSE}
+
+p4<-ggplot(data=epi_gdp.df, aes(x = log_gdp_pc, y = EPI.new)) +
+  geom_point() + 
+  geom_smooth(method=lm)+
+  labs(x="Logged GDP per capita (USD)", y="Environmental Performance Index")
+p4
+```
+
+Awesome! That scatter plot looks pretty darn good. If we are meeting the
+assumptions of ordinary least squares, we want equal spread of the
+observations above and below the regression line across all values of
+our explanatory variable (log gdp per capita).
+
+**Question 5 (a, b, and c)**
+
+**Now it is your turn to play around with one of the other variables in the Yale EPI dataset. 
+Please look at its relationship with log GDP per capita (x). 
+
+Please develop: <br>
+
+(a) a scatterplot, <br>
+```{r,message=FALSE, echo=FALSE}
+p1 <- epi_gdp.df %>% 
+  ggplot(aes(x = log_gdp_pc, y = OZD.new, label = iso))+
+       geom_point(size = 1.5) + 
+       theme_minimal()+
+       ylab("Ozone Exposure")+
+       xlab("Per Capita Gross Domestic Product (USD)")+
+       ylim(0,100)+
+       geom_text(aes(label = iso), size = 3, vjust=-0.5) 
+p1
+
+p1+scale_x_log10() + 
+  xlab("Per Capita Gross Domestic Product (USD)")
+
+```
+
+(b) calculate a correlation coefficient, and  <br>
+```{r,message=FALSE, echo=FALSE}
+cor_log <- cor(epi_gdp.df$OZD.new,
+                  epi_gdp.df$log_gdp_pc,
+                  use = "pairwise.complete.obs")
+cor_log
+```
+
+(c) Develop and interpret an appropriate simple linear regression model.** 
+The logged GDP and the Ozone Exposure level has significant correlation (The Pr(>|t|)is 6.65e-09 *** so we can reject the null hypothesis.) 
+```{r,message=FALSE, echo=FALSE}
+p2<-ggplot(data=epi_gdp.df, aes(x = log_gdp_pc, y = OZD.new)) +
+  geom_point() + 
+  geom_smooth(method=lm)+
+  labs(x="Logged GDP per capita (USD)", y="Ozone Exposure")
+p2
+```
+
+```{r,message=FALSE, echo=FALSE}
+model.2 <- lm(OZD.new ~ log_gdp_pc , data = epi_gdp.df)
+model.2
+summary(model.2)
+```
+```{r,message=FALSE}
+options(scipen=0) 
+tidy(summary(model.2))
+```
+
+Prior to selecting your variable, please skim the Policymaker's Summary, the EPI Report, and the Technical Appendix
+which can be found here: https://epi.yale.edu/downloads 
+
+**Please knit to html and upload to Assignments before lecture on Wednesday.**
+
+### Congratulations on finishing Tutorial 8!
+
