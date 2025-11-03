@@ -1,0 +1,655 @@
+---
+title: "Tutorial 9: Multiple Linear Regression Tutorial"
+output:
+  html_document:
+    df_print: paged
+editor_options:
+  chunk_output_type: inline
+---
+
+
+# Introduction to Multiple Linear Regression
+
+## Motivating Question: What observable characteristics of countries explain the variation in their environmental performance? 
+
+We will measure the response variable (dependent) as a country's environmental performance through the Environmental Performance Index (EPI) from Yale, which we have previously used: https://epi.yale.edu/. Many factors may explain variation in Environmental Performance. Given that this is an index constructed by weighting 58 performance indicators, it is important to differentiate between endogenous and exogenous factors. These terms are used widely in statistics and will refer to slightly different concepts depending on the discipline and the application (for instance in causal models). 
+
+In this model, in which we want to explore associations between a country's environmental performance and characteristics, *endogenous factors* refer to indicators that directly determine the overall score by construction -- these are things like GHG emissions, tree cover loss, and waste management, which are measured and then combined to create the score. In contrast, *exogenous factors* refer to variables that are not mechanistically determining the score, but which may partly explain the variation in score. These variables -- like GDP, human development index, and regional history -- could be hypothesized as being the underlying reason for why countries have different levels of regulatory control and environmental performance. 
+
+When starting to develop a linear model, I always start with thinking about the conceptual model. What relationships do I hypothesize?
+
+First it is important to think about how EPI is measured--it is an index (0-100) based on the combined scores across 58 indicators that measure different facets of environmental performance.
+
+The central question I'm posing focuses on the relationship between environmental performance and a country's economic / geographic characteristics. For instance, one might want to know, holding the other variables constant, is a country's location or is a country's economic performance more predictive of its environmental performance. These two variables are related and both have to do with a country's history (including colonization). One might also want to know if urbanization tends to lead to increased environmental performance (by reducing pressure on resources in rural areas). 
+
+We have already looked at gdp's effect on environmental performance in a bivariate regression, but I also hypothesize that gdp will have a positive association with environmental performance, all else equal (holding region and urban percent constant). I also hypothesize that as the percent urban residents increase so too will the country's environmental performance. 
+
+More specifically, we will consider the following hypotheses in this tutorial:
+ 
+1. **On average, higher GDP is associated with higher environmental performance** (we saw this before and will expect this to hold)
+
+2. **On average, environmental performance varies across regions.**
+
+3. **On average, urbanization associated with higher environmental performance.**
+
+
+4. **On average, more tourism is associated with increases in environmental performance.** 
+
+All of these are "associations" rather than causal relationships, but this relationship could be a causal in both directions: with more tourism interest, protection of forests, wetlands, etc. becomes more valuable because it is associated with a high value industry; and, conversely, a country with more pristine natural areas will be more likely to attract touristic interest. For now we will ignore the possible endogeneity of this relationship due to potential reverse causality.
+
+In each of these hypotheses, we will operationalize environmental performance using Yale's Environmental Performance Index (EPI). 
+
+
+# So let's get started!
+
+We are adding a few new packages to our repertoire--one that will allow us to test assumptions of linear models and to show off several tricks in R. 
+
+## Install packages
+
+So we could install packages individually, but let's do something more elegant.
+
+**Old way**
+
+install.packages("lmtest")  # has tests for homoskedasticity
+install.packages("car")     # has tests for multicollinearity
+install.packages("GGally")  # has function for scatterplot matrix
+install.packages("purrr")   # has a function to allow for iteration over columns
+install.packages("readxl")  # allows one to read in excel documents directly to R
+install.packages("ggrepel") # allows one to add fancy text labels to ggplot scatterplot points
+install.packages("broom")   # allows us to tidy our regression results
+install.packages("stargazer") # allows us to print our model results in a professional table
+
+
+But we are now good at that, so let's run this chunk. There are other ways we could do this (with require()) for example, we will try other approaches in future tutorials.
+
+```{r install.library, warning=FALSE, message=F, hide = T}
+list.of.packages <- c("lmtest", "car", "GGally", "purrr", "readxl", "ggrepel", "broom", "stargazer", "tidyverse", "wbstats") # the packages that we need
+
+# Install packages that we don't have
+installed_packages <- installed.packages()[, "Package"] # this line finds the installed packages
+missing_packages <- setdiff(list.of.packages, installed_packages) #this line finds the difference between the installed_packages and missing_packages
+
+if (length(missing_packages) > 0) {
+  install.packages(missing_packages)
+}
+
+# Load all packages. The function lapply() applies a function (in this case library()) over a list or vector (in this case list.of.packages)
+# Read more about lapply() here: https://www.geeksforgeeks.org/apply-lapply-sapply-and-tapply-in-r/
+
+
+#I made it invisible so i don't want to see the list of libraries multiple times. 
+invisible(lapply(list.of.packages, library, character.only = TRUE))
+
+```
+
+
+
+
+```{r}
+getwd()
+#setwd() if necessary
+```
+
+
+Clean up the environment!
+
+```{r}
+rm(list = ls())
+```
+
+
+
+## Prepare Data for Analysis
+
+Data preparation is a crucial yet unsexy stage in most projects. In this lab, I am going to show you how to read in multiple sheets of data from excel using the read_excel file. Then, I will quickly select the columns we will use and combine the different datasets. In some of the past assignments and labs we have done this work before sharing the data, but in this one we show the full process.
+
+**read_excel**: We have been reading in data from .csv files using readr's read_csv. We can also directly read in excel files. Sometimes your data will not have column names as the first row and so this package also has a helpful parameter called "skip" that allows you to skip some lines before finding the row that has column names. If you are unsure of how to get your data to be read in correctly you can also use the Rstudio ribbon at the top of your screen File > Import Dataset > From Excel... > Then Browse to find your data and play with the options until it is in the desired format. 
+
+## Load and clean the EPI data using read_excel
+
+I encourage you to review the xlsx files in Excel prior to running the chunk so you know how the files look in Excel.
+
+```{r, warning=F}
+epi <- read_excel("Justina/ENV710/epi2024.xlsx") # sheet = 1 is the default argument so we don't need to type it
+key <- read_excel("Justina/ENV710/epi2024.xlsx", sheet = 2)
+country_attributes <- read_excel("Justina/ENV710/epi2024.xlsx", sheet = 3)
+```
+
+Use glimpse to look at the variables and data for epi, key and country_attributes.
+
+```{r}
+glimpse(epi)
+glimpse(key)
+glimpse(country_attributes)
+```
+
+Below are the variables that we are selecting from the Yale EPI dataset. To learn more about the variables, please look over their technical appendix here:
+https://epi.yale.edu/downloads/2024epitechnicalappendix20241207.pdf
+
+
+**iso**: country code
+**country**: country
+**FCL.new**: Tree cover loss weighted by permanency, annual
+**EPI.new**: Environmental Performance Index
+**SOE.new**: SO2 exposure, weighted by population
+**SPI.new**: Species Protection Index
+**SHI.new**: Species Habitat Index
+**CDA.new**: CO2 growth rate is calculated as the average annual rate of increase or decrease in raw carbon dioxide emissions over the years 2013–2022
+**BCA.new**: lack carbon growth rate is calculated as the average annual rate of increase or decrease in black carbon over the years 2013–2022
+**MPE.new**: the stringency of marine protected areas (MPAs)
+
+In the chunk below you will select the variables that you will use and rename them.
+
+```{r, warning=F}
+epi <- epi  %>%  
+  select(iso, country, FCL.new, EPI.new, SOE.new, SPI.new, SHI.new, 
+         CDA.new, BCA.new, MPE.new)  %>%  
+  rename(epi_score = EPI.new,
+         tree_cover_loss = FCL.new,
+         species_protection_index = SPI.new,
+         species_habitat_index = SHI.new,
+         marine_protection = MPE.new,
+         c02_trend = CDA.new,
+         black_carbon_trend = BCA.new)%>%
+  glimpse()
+
+```
+
+From the country_attributes data frame, we will select iso, country, region, ldc, sids, oecd, g20, and franco from the country attributes. Please check out these country groupings in the metadata (found on canvas). 
+
+```{r, warning=F}
+country_attributes <- 
+  country_attributes %>%
+  select(iso, country, region, ldc, sids, oecd, g20, franco)
+```
+
+
+We can check what nations are in the groups without making new dataframes using "with" and the base R table function. 
+**Question 1** 
+<br>
+What is this information showing us? This shows whether a country is belong to OECD. The OECD variable is a binary variable so result 1 means that country is belng to OECD.
+
+```{r, warning=F}
+country_attributes %>%
+  filter(oecd == 1) %>% 
+  with(table(country))
+```
+
+OR, if we stick with dplyr, we can filter, group_by(country) and then count. This should give you the same information as the chunk above.
+
+```{r}
+country_attributes %>%
+  filter(oecd == 1) %>% 
+  group_by(country)%>%
+  count()
+```
+
+Now try this on your own.
+**Question 2** How many nations are in the franco group?
+<br>
+There are 51 nations in the franco group.
+```{r, Question 2}
+country_attributes %>%
+  filter(franco == 1) %>% 
+  group_by(country)%>%
+  count()
+```
+
+
+Before we work with the data, we should ensure the variables are of the proper type. We can check the type (string, numeric, etc. at once) using the sapply function [sapply(x, function)]. The sapply function is one of the family of apply functions and is quite useful if you want to run a function over all variables in a data frame. You can read more about the sapply function here: https://www.guru99.com/r-apply-sapply-tapply.html. 
+
+The typeof function tells us the type of data: 
+
+So this chunk tells us the type of data for all of the variables in the epi data frame.
+```{r, warning=F}
+sapply(epi, typeof)
+```
+
+The function map(typeof) (in the package purrr) achieves the same functionality as sapply(epi, typeof). Purrr is associated with tidyverse, but must be loaded separately.
+
+```{r, warning=F}
+purrr::map(epi, typeof)
+```
+
+
+**Question 3**
+Do you notice any issues with the data? Are variables that should be numeric are in fact numeric? 
+<br>
+tree_cover_loss, species_protection_index, species_habitat_index, marine_protection should be changed into numeric.
+<br>
+
+Next, we want to convert those variables into numeric.
+
+If you want to change all columns in the epi data frame except country and iso to be numeric you can use the following code. The code is mutating across everything except country and iso [-c(country, iso)] and making all the variables (everything) numeric. Do not worry about the warning for NA coercion. This means that if an observation isn't structured as an integer, it will be changed (coerced) into an NA. It is good practice to check the original data prior to changing to numeric to make sure there aren't typos, etc.. that would cause problems in changing to numeric.
+
+```{r}
+epi <- epi %>% 
+  mutate(across(c(everything(), -c(country, iso)), as.numeric))
+```
+
+Now check the type of data for all of the variables again to see if the problem is fixed.
+```{r}
+purrr::map(epi, typeof)
+```
+
+
+We want to quickly check how many NAs there are in each column. This code is a super useful, fast way to ask "how many nas are there in each column".
+
+```{r}
+colSums(is.na(epi)) 
+```
+**Question 4**
+<br>
+ What variables have the greatest number of missing values? What might be the reason why these values are missing?
+The tree_cover_loss and the marine_protection variables have 49 missing values. These may come from the topographical differences, such as some countries don't have ocean or trees. 
+
+## Load and clean World Bank data
+
+For our analysis, we also want to read in a set of nine indicators from the World Bank. After some exploration, we found that the year 2020 had the least amount of missingness. Recognizing that the EPI data are from 2024, this isn't ideal. More about this below. 
+
+**SP.URB.TOTL.IN.ZS**: Urban population (% of total population)
+**SP.POP.TOTL**: Total population
+**NY.GDP.PCAP.CD**: Gross Domestic Product (current US$) per capita
+**MO.INDEX.HDEV.XQ**: Measures 2 indicators (a) Health and Welfare and (b) education. 
+(https://databank.worldbank.org/metadataglossary/africa-development-indicators/series/MO.INDEX.HDEV.XQ)
+**GV.CONT.CO.ES**: "Control of corruption measures the extent to which public power is exercised for private gain, including petty and grand forms of corruption, as well as “capture” of the state by elites and private interests." https://databank.worldbank.org/metadataglossary/africa-development-indicators/series/GV.CONT.CO.ES 
+**SP.DYN.LE00.IN:** Life expectancy at birth (years)
+https://databank.worldbank.org/metadataglossary/world-development-indicators/series/SI.DST.10TH.10
+**ST.INT.ARVL**: International tourism, number of arrivals
+https://data.worldbank.org/indicator/ST.INT.ARVL
+
+```{r}
+library(WDI)
+
+wb_data <-
+  
+  wb_data(
+    indicator = c("SP.URB.TOTL.IN.ZS", 
+                  "SP.POP.TOTL", 
+                  "NY.GDP.PCAP.CD", 
+                  "MO.INDEX.HDEV.XQ", 
+                  "GV.CONT.CO.ES", 
+                  "SP.DYN.LE00.IN", 
+                  "ST.INT.ARVL"),
+    country = "countries_only", 
+    start_date = 2020, 
+    end_date = 2020
+  )%>%
+  glimpse()
+
+```
+
+**Question 5**
+In the chunk below, please check the number of NAs in the wb_data data frame. What variables have the greatest number of missing observations?
+<br>
+International tourism, number of arrivals(ST.INT.ARVL) has the greatest number of missing observation.
+
+```{r}
+colSums(is.na(wb_data)) 
+```
+
+Unfortunately, missing data is very common problem of the research process, especially when working with secondary data. If I was conducting this analysis as part of my research (rather than as a coding tutorial), I would have to think very seriously the timing of the data. With the mismatch of time, the easiest solution would be to take EPI data from a different year and pull World Bank data from that year to see if we had less missingness. We could also, alternatively, construct a theory in which we expect a lagged association (GDP from 2020 having an association with EPI 2024), but this would need to be grounded in the literature. 
+
+We will proceed with the 2024 EPI and 2020 World Bank data, but we should explicitly note this four-year difference in any report that we write.
+
+We will now rename the variables to be more understandable and intuitive.
+
+```{r}
+
+wb_data <- wb_data %>% 
+  rename(urban_pop_pct = SP.URB.TOTL.IN.ZS,
+       pop = SP.POP.TOTL, 
+       gdp = NY.GDP.PCAP.CD,
+       life_expect = SP.DYN.LE00.IN,
+       int_tourism = ST.INT.ARVL,
+       iso = iso3c) %>% 
+  select(-iso2c, -country) %>%
+  glimpse()
+
+```
+
+## Merge and Explore the Data
+
+The next step is for us to join the country attributes with the epi scores and with the world bank data. The variables in this sheet are mostly indicators that describe the country's region and economic status. These could be useful if we want to investigate more deeply the interrelationship between the country's economic history and its current EPI score. We are joining by iso and country so we don't make country.x and country.y in our new dataframe. Alternatively, we could have removed country from one of the dataframes prior to joining.
+
+```{r}
+epi <- left_join(epi, country_attributes, by = c("iso", "country"))%>%
+  glimpse()
+```
+
+While it doesn't matter much for running regressions, I prefer to have my categorical variables as factors (vs numeric). The categorical variables are region, group, ldc, sids, oecd, g20, and franco. 
+
+```{r}
+epi<-epi%>%
+  mutate(region=as.factor(region),
+        ldc=as.factor(ldc),
+        sids=as.factor(sids),
+        oecd=as.factor(oecd),
+        g20=as.factor(g20),
+        franco=as.factor(franco))%>%
+  glimpse()
+```
+
+And now we join the World Bank data (wb_data).
+
+```{r}
+epi <- left_join(epi, wb_data, by = "iso")
+```
+
+
+**Question 6**
+In the chunk, look at the final dataframe epi. How many variables? Observations? Are the variables of the correct type (numeric when they should be numeric, for example)? As a reminder, <dbl> is a type of numeric data.
+
+```{r}
+summary(epi)
+colSums(is.na(wb_data)) 
+```
+<br>
+It has 22 variables now. The observation is in the below and all of the variables are numeric except iso and courntry variables.
+iso:180
+country: 180
+tree_cover_loss: 131
+epi_score: 180
+SOE.new:180
+species_protection_index: 178
+species_habitat_index:162
+C02_trend:180
+black_carbon_trend: 180
+marine_protection: 131 
+region:179
+Idc:179
+sids:179
+oecd:179
+g20:179
+franco:179
+date:179
+gdp:177
+life_expect:179
+population:179
+urban_pop_pct:179
+int_toursim:114 
+
+
+## Explore our new data
+
+Let's start by looking at the data visually. We can do a scatterplot matrix in R.
+https://r-graph-gallery.com/199-correlation-matrix-with-ggally.html. To do so, we will use a new package, GGally.
+
+Let's make a scatterplot matrix. Let's first look at few variables at once. We can use the select() verb to reorder variables without dropping any of them. I want the response variable (epi_score, column number 3) to be in the lower right corner of our matrix, so I put it last (the order of columns therefore 9:3). 
+
+```{r scatterplotmatrix, warning=F, message=F}
+# first, we need to reorder our variables. This use of select reorders our variables without dropping any.
+epi <- epi %>%
+  select(country, iso, epi_score, gdp, life_expect, pop, urban_pop_pct, tree_cover_loss:int_tourism)
+
+ggpairs(epi, columns = 3:9, title = "",  
+        axisLabels = "show",
+        lower = list(continuous = wrap("points", size = 0.4)),
+        upper = list(continuous = wrap("cor", size = 3)))+
+  theme( #adjust the axis labels
+    axis.text.x = element_text(size = 5),
+    axis.text.y = element_text(size = 5),
+    strip.text.x = element_text(size = 5),  
+    strip.text.y = element_text(size = 5)
+  )
+
+```
+  
+**Question 7**
+Discuss briefly the scatterplots/histograms(oecd) on the bottom row. The y-axis is epi_score and the x-axis for the six other variables are at the top of the matrix (uban_pop_pct, pop, life_expec, etc.). Which variables are most highly correlated with epi_score?
+
+If we feel the matrix is too large, squished, we could select fewer variables (but still including epi_score). If we wanted, we could also select columns (by number) to scatterplot by first making a vector of columns to select, then using the name of the vector as the second argument here.
+
+```{r scatterplotmatrix.select, warning=F, message=F}
+columns.select<-c(4:7, 9, 3) # notice I use 4:7 to say columns 4 through 7
+
+ggpairs(epi, columns = columns.select, title = "", 
+        axisLabels = "show")
+
+ggpairs(epi, columns = columns.select, title = "", 
+        axisLabels = "show",
+        lower = list(continuous = wrap("points", size = 0.4)),
+        upper = list(continuous = wrap("cor", size = 3)))
+```
+<br>
+The gdp and EPI have positive correlation, suggesting the two variables have non-linear relation.
+The life expectation and EPI have positive correlation.
+The population is also slightly correlated with EPI but the data is highly left-skewed so it has to be adjusted with log transformation.
+The urban population is highly correlated with EPI and have positive correlation.
+
+
+Based on the scatterplots, I think it makes sense to log transform pop and gdp.
+
+```{r}
+epi <- epi %>%
+  mutate(log_pop = log(pop),
+         log_gdp = log(gdp))
+
+```
+
+
+**Question 8**
+Please make a scatterplot matrix of the remaining variables and discuss scatterplots/histograms and correlations. It may be helpful to glimpse epi first to identify the column numbers. Are there any variables that you think should be logged?
+
+
+```{r, warning = F, message=F}
+glimpse(epi)
+```
+
+
+```{r, warning = F, message=F}
+glimpse(epi)
+
+columns.select<-c(8:14,21:24) 
+
+ggpairs(epi, columns = columns.select, title = "", 
+        axisLabels = "show")
+
+ggpairs(epi, columns = columns.select, title = "", 
+        axisLabels = "show",
+        lower = list(continuous = wrap("points", size = 0.4)),
+        upper = list(continuous = wrap("cor", size = 3)))
+```
+```
+
+# Run a Multiple Regression
+
+Thinking about our four hypotheses above, let's go ahead and build an initial model. Similar to simple linear regression, we use the lm() function. We place the response variable (Y) first followed by a ~. After the ~ we place the explanatory variables seperated by +. Notice that we are dealing with missing values by the argument na.action=na.exclude. We then use the summary() function to see the model results.
+
+**Notice**: I include region and gdp. These may be highly correlated which we will test later on. 
+
+```{r}
+model.1 <-
+  lm(epi_score ~ log_gdp + log_pop + urban_pop_pct + life_expect + region, 
+     data = epi, na.action = na.exclude)
+
+summary(model.1)
+```
+
+
+## Tidy the model with broom
+
+### Make the model results into a dataframe which could be displayed with gt, kable or your display package of choice
+
+We use the function tidy() to show the model outputs about coefficients.
+```{r}
+broom::tidy(model.1)
+```
+
+
+**Question 9**
+Use the glance() function broom to look at model fit parameters. Which statistic is reported as 'statistic'? What is sigma?
+
+```{r}
+broom::glance(model.1)
+```
+## Plotting the Residuals vs. Fitted Values
+
+We can make a residual vs. fitted plot using the plot() function, as we did in simple linear regression. Alternatively, we could have R calculate the residual and fitted values and then plot with ggplot2.
+
+First we will calculate the residuals with the function resid(). We will call these model.1.res in the dataframe epi.
+
+```{r residuals}
+epi$model.1.res = resid(model.1, na.action = na.exclude)
+
+```
+
+To make the fitted values, we can use the fitted() function. 
+
+```{r fitted}
+epi$model.1.fit = fitted(model.1, na.action = na.exclude) 
+```
+
+Now we can make the scatterplot of residual vs. fitted.
+
+```{r rvfplot, warning=F}
+ggplot(epi, aes(x=model.1.fit, y=model.1.res)) +
+  geom_point() +
+  geom_hline(yintercept=0, col="red", lwd=1)+
+  ggtitle("Model 1 Residual vs Fitted Plot") +
+  xlab("Fitted EPI Score") + ylab("Residuals") + theme_bw()
+```
+
+
+Now, for fun, let's add labels to the residuals for the country's that have an absolute residual greater than 10. To do this, we will use the ggrepel package. I have also added some fun code to change the color of the points in question (and their label) and to change the color palette. To learn code tricks like this consider attending the Rfun luncheons at Bostock library!
+
+```{r rvfplot.labelled}
+newColorPalette = c('black','orange') #Halloween colors!
+
+ggplot(epi, aes(x=model.1.fit, y=model.1.res)) +
+  geom_point()+
+  geom_text_repel(data=epi %>% filter(abs(model.1.res) >10),
+                  aes(x=model.1.fit, y=model.1.res,
+                      label=country), col='orange') +
+  scale_color_manual(values = newColorPalette)+
+ggtitle("Model 1 Residual vs Fitted Plot") +
+  xlab("Fitted EPI Score") + ylab("Residuals") + 
+  theme_bw()
+```
+
+**Question 10**
+Now it's your turn. Color fitted values that are lower than 30 or larger than 70 and label them by country name.
+
+```{r}
+
+```
+
+
+
+We can also get the residual vs fitted plot and other diagnostic plots using the plot() function. 
+
+```{r}
+par(mfrow=c(1,1)) # this sets up how the figures are displayed, in this case in one row and one column
+plot(model.1, 1) # residual vs fitted
+plot(model.1, 3) # scale location
+plot(model.1, 5)  #Cook's distance
+```
+
+# Tests for heteroskedasticity and multicollinearity
+
+## Breush-Pagan test for homoskedasticity
+
+Beyond looking at the residual vs fitted and scale-location plots, we can run a statistical test for homoscedasticity called the Breusch-Pagan test. The null hypothesis of the B-P test is homoskesticity (constant variance of the residuals across fitted values). Therefore, we want to fail to reject our null. 
+
+```{r}
+lmtest::bptest(model.1)  # Breusch-Pagan test
+```
+
+Based on the p-value, we cannot reject the null which means that we can continue to assume homoskedasticity. 
+
+## VIF test for multicollinearity. 
+
+Multicollinearity occurs when two or more explanatory variables are highly correlated. Multicollinearity may be present when VIF is greater than 10, although some use a cutoff of 4. Multicollinearity is really a matter of degree. GVIF are reported when there are factor variables (such as region) and means generalized VIF. Ideally the GVIF^(1/(2*Df)) to be less than 2 (which roughly corresponds to a VIF of 4). These GVIFs are borderline acceptable--it is something I would want to discuss in a paper and to dig in further about correlations among variables (could be an issue between log_gdp and life_expect). 
+
+Resources on multicollinearity: 
+https://rforpoliticalscience.com/2020/08/03/check-for-multicollinearity-with-the-car-package-in-r/
+https://online.stat.psu.edu/stat462/node/180/
+http://www.sthda.com/english/articles/39-regression-model-diagnostics/160-multicollinearity-essentials-and-vif-in-r/
+
+
+```{r}
+car::vif(model.1)
+```
+
+### Interpretation of model.1 results
+
+**Questions 11-15**
+
+11. Interpret the coefficient on log_gdp (H1). What does this say about H1?
+12. Interpret the coefficient on Global West (notice that the category that was dropped/to which you are comparing the Global West to is Asia-Pacific--you can check this with the levels() function) (H2)
+13. Discuss H3 (urban population percent) in the context of the model results.
+14. What are the R2 and Adjusted R2?
+15. Discuss the F-statistic
+
+ 
+## Model 2: Test the international tourism  
+ 
+ **Question 16** Add the log of international tourism to model 1. Test the assumptions of the model. Interpret the coefficient on log(int_tourism). Does H3 stand? Call this model model.2. 
+
+## Model 3: Adding in a quadratic term to our model
+
+These models could help us explore this idea that the Environmental Kuznets Curves, which show the inverted U-shape trend for a country's pollution as wealth increases, may not apply to GHG emissions (see: https://www.jstor.org/stable/44379188). To do this, we have to create squared terms of our variables, as I did in our chunk below. 
+
+Add in the rest of the explanatory variables from Model 1 and run the model. Test assumptions. Is the quadratic term significant?
+
+```{r}
+model.3<-lm(epi_score ~ gdp + I(gdp^2), data = epi) #I() allows mathematical interpretation
+
+#alternatively, you can mutate a new variable called gdp_2
+```
+
+
+## Model 4: Change the response variable
+
+Run a model with the Same Predictors on the Outcomes of Marine Protected Areas, Tree Cover Loss, GHG Emissions, or SO2 trend. Be sure to check the assumptions with the appropriate plots and tests. Interpret the significant results. 
+
+
+## Model 5: Create Your EPI 
+
+Reload the original data, look at the key, and the technical appendix (https://epi.yale.edu/downloads/2024epitechnicalappendix20241207.pdf), then include only the indicators that you think are most important (endogenous variables). How does the order of the country ranks change? To what extent do the country rankings change if you re-weight the different components you include? What happens when you normalize each indicator (subtract mean and divide by standard deviation) before you sum the indicators to get a country score? Do your results surprise you?
+
+## Run Multiple Models and make a professional table with Stargazer 
+
+In the chunk below is a model predicting log(ghg_per_cap). I then build a pretty table using stargazer of model.1 and the ghg model. You will only see the table once you knit to html. To see it inline, change it to type = "text". Read more about stargazer here: https://cran.r-project.org/web/packages/stargazer/vignettes/stargazer.pdf
+
+
+```{r, eval=T, results='asis',warning = F,}
+#install.packages("stargazer")
+
+epi <- epi %>%
+  mutate(ghg_per_cap = c02_trend / pop)
+
+model.ghg <-
+  lm(log(ghg_per_cap + 0.0001) ~ log_gdp + log_pop + urban_pop_pct + life_expect + region, 
+     data = epi, na.action = na.exclude)
+
+stargazer(model.1, model.ghg, column.labels = c("EPI Score", "GHG per Cap"), title = "Comparing GHG and EPI Models", type = "html")
+
+```
+
+# Additional Notes
+
+## Coding notes
+
+When making a categorical variable into a factor (or series of dummy variables) and then running it through a multiple regression, you will need to leave one level (or one dummy variable) out to avoid perfect multicollinearity. R does this automatically, but it is important to know which level is being left out. In our case, "Asia-Pacific" is the region that is left out.
+
+## Notes on World Bank Indicators
+(from wb_indicators see indicator_desc column to learn more about variables)
+
+Gini index measures the extent to which the distribution of income (or, in some cases, consumption expenditure) among individuals or households within an economy deviates from a perfectly equal distribution. A Lorenz curve plots the cumulative percentages of total income received against the cumulative number of recipients, starting with the poorest individual or household. The Gini index measures the area between the Lorenz curve and a hypothetical line of absolute equality, expressed as a percentage of the maximum area under the line. Thus a Gini index of 0 represents perfect equality, while an index of 100 implies perfect inequality.
+
+Control of corruption measures the extent to which public power is exercised for private gain, including petty and grand forms of corruption, as well as “capture” of the state by elites and private interests.  Further documentation and research using the World Governance Indicators (WGI) is available at www.worldbank.org/wbi/governance.
+
+Life expectancy at birth indicates the number of years a newborn infant would live if prevailing patterns of mortality at the time of its birth were to stay the same throughout its life.
+
+International inbound tourists (overnight visitors) are the number of tourists who travel to a country other than that in which they have their usual residence, but outside their usual environment, for a period not exceeding 12 months and whose main purpose in visiting is other than an activity remunerated from within the country visited. When data on number of tourists are not available, the number of visitors, which includes tourists, same-day visitors, cruise passengers, and crew members, is shown instead. Sources and collection methods for arrivals differ across countries. In some cases data are from border statistics (police, immigration, and the like) and supplemented by border surveys. In other cases data are from tourism accommodation establishments. For some countries number of arrivals is limited to arrivals by air and for others to arrivals staying in hotels. Some countries include arrivals of nationals residing abroad while others do not. Caution should thus be used in comparing arrivals across countries. The data on inbound tourists refer to the number of arrivals, not to the number of people traveling. Thus a person who makes several trips to a country during a given period is counted each time as a new arrival.
+
+
+
+
+
+
+
+
+
+
