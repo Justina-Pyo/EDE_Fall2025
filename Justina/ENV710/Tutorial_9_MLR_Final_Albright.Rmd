@@ -1,8 +1,6 @@
 ---
 title: "Tutorial 9: Multiple Linear Regression Tutorial"
-output:
-  html_document:
-    df_print: paged
+output: html_document
 editor_options:
   chunk_output_type: inline
 ---
@@ -430,17 +428,18 @@ epi <- epi %>%
 
 **Question 8**
 Please make a scatterplot matrix of the remaining variables and discuss scatterplots/histograms and correlations. It may be helpful to glimpse epi first to identify the column numbers. Are there any variables that you think should be logged?
-
+<br>
+The population and the gdp has to be logged.
 
 ```{r, warning = F, message=F}
 glimpse(epi)
 ```
 
 
-```{r, warning = F, message=F}
+```{r message=FALSE, warning=FALSE}
 glimpse(epi)
 
-columns.select<-c(8:14,21:24) 
+columns.select<-c(8:14,22:24) 
 
 ggpairs(epi, columns = columns.select, title = "", 
         axisLabels = "show")
@@ -450,8 +449,6 @@ ggpairs(epi, columns = columns.select, title = "",
         lower = list(continuous = wrap("points", size = 0.4)),
         upper = list(continuous = wrap("cor", size = 3)))
 ```
-```
-
 # Run a Multiple Regression
 
 Thinking about our four hypotheses above, let's go ahead and build an initial model. Similar to simple linear regression, we use the lm() function. We place the response variable (Y) first followed by a ~. After the ~ we place the explanatory variables seperated by +. Notice that we are dealing with missing values by the argument na.action=na.exclude. We then use the summary() function to see the model results.
@@ -479,6 +476,8 @@ broom::tidy(model.1)
 
 **Question 9**
 Use the glance() function broom to look at model fit parameters. Which statistic is reported as 'statistic'? What is sigma?
+The statistic means the value of the overall F -stat for the model.
+The sigma means the residual standard error.
 
 ```{r}
 broom::glance(model.1)
@@ -531,7 +530,17 @@ ggtitle("Model 1 Residual vs Fitted Plot") +
 Now it's your turn. Color fitted values that are lower than 30 or larger than 70 and label them by country name.
 
 ```{r}
+newColorPalette = c('black','orange') #Halloween colors!
 
+ggplot(epi, aes(x=model.1.fit, y=model.1.res)) +
+  geom_point()+
+  geom_text_repel(data=epi %>% filter(abs(model.1.fit) <30 | abs(model.1.fit) >70),
+                  aes(x=model.1.fit, y=model.1.res,
+                      label=country), col='orange') +
+  scale_color_manual(values = newColorPalette)+
+ggtitle("Model 1 Residual vs Fitted Plot") +
+  xlab("Fitted EPI Score") + ylab("Residuals") + 
+  theme_bw()
 ```
 
 
@@ -576,28 +585,73 @@ car::vif(model.1)
 **Questions 11-15**
 
 11. Interpret the coefficient on log_gdp (H1). What does this say about H1?
-12. Interpret the coefficient on Global West (notice that the category that was dropped/to which you are comparing the Global West to is Asia-Pacific--you can check this with the levels() function) (H2)
-13. Discuss H3 (urban population percent) in the context of the model results.
-14. What are the R2 and Adjusted R2?
-15. Discuss the F-statistic
+H1. **On average, higher GDP is associated with higher environmental performance** 
+A 1% increase in GDP is associated with a change of 0.0346 unit of EPI.Because the coefficient is positive, we can say higher GDP is associated with higher envrionmental performance(P<0.001).	
 
+
+
+12. Interpret the coefficient on Global West (notice that the category that was dropped/to which you are comparing the Global West to is Asia-Pacific--you can check this with the levels() function) (H2)
+
+H2. **On average, environmental performance varies across regions.**
+
+A 1% increase in global West is associated with a change of 16.98640 unit of EPI. We can reject the null hypothesis(P<0.001).
+
+13. Discuss H3 (urban population percent) in the context of the model results.
+H3. **On average, urbanization associated with higher environmental performance.**
+
+A 1% increase in urban population percent is associated with a change of 0.01166 unit of EPI. We cannot reject the null hypothesis(P<0.001).(P>0.6)
+
+14. What are the R2 and Adjusted R2?
+Multiple R-squared:  0.7956,	Adjusted R-squared:  0.7819 
+
+15. Discuss the F-statistic
+F-statistic: 58.03 on 11 and 164 DF,  p-value: < 0.00000000000000022
  
 ## Model 2: Test the international tourism  
  
  **Question 16** Add the log of international tourism to model 1. Test the assumptions of the model. Interpret the coefficient on log(int_tourism). Does H3 stand? Call this model model.2. 
+```{r}
+epi <- epi %>%
+  mutate(log_int_tourism = log(int_tourism))
+
+model.2 <-
+  lm(epi_score ~ log_gdp + log_pop + urban_pop_pct + life_expect + region+ log_int_tourism, 
+     data = epi, na.action = na.exclude)
+
+par(mfrow=c(1,1)) # this sets up how the figures are displayed, in this case in one row and one column
+plot(model.2, 1) # residual vs fitted
+plot(model.2, 3) # scale location
+plot(model.2, 5)  #Cook's distance
+lmtest::bptest(model.2)
+car::vif(model.2)
+
+summary(model.2)
+```
+
+H4. **On average, more tourism is associated with increases in environmental performance.**
+The 1% increase in urbanization associated with a change of -0.01954 unit of EPI. We cannot reject the null hypothesis(P<0.001).(P>0.6) According to the residual vs fitted graph, the residual is fitted to the value and there is no heteroskedacity issue(p-value = 0.8812). Also the log internal tourism's VIF value is lower than 5 so we can use this variable.   
 
 ## Model 3: Adding in a quadratic term to our model
 
 These models could help us explore this idea that the Environmental Kuznets Curves, which show the inverted U-shape trend for a country's pollution as wealth increases, may not apply to GHG emissions (see: https://www.jstor.org/stable/44379188). To do this, we have to create squared terms of our variables, as I did in our chunk below. 
 
 Add in the rest of the explanatory variables from Model 1 and run the model. Test assumptions. Is the quadratic term significant?
+According to the I(gdp^2) we get negative value which shows the hypothesis is 
 
 ```{r}
-model.3<-lm(epi_score ~ gdp + I(gdp^2), data = epi) #I() allows mathematical interpretation
+model.3<-lm(epi_score ~ gdp + I(gdp^2)+log_pop + urban_pop_pct + life_expect + region, data = epi,na.action = na.exclude) #I() allows mathematical interpretation
 
 #alternatively, you can mutate a new variable called gdp_2
-```
+par(mfrow=c(1,1)) # this sets up how the figures are displayed, in this case in one row and one column
+plot(model.1, 1) # residual vs fitted
+plot(model.1, 3) # scale location
+plot(model.1, 5)  #Cook's distance
+lmtest::bptest(model.3)
+car::vif(model.3)
 
+summary(model.3)
+```
+According to the Breusch-Pagan test, we can say there is no heteroskedasticity problem but VIF test shows the I terms have significant  multicollinearity problem. In the residual vs fitted graph, we can also see some outliers in the left corner.There is negative correlation between the I and the EPI (P><0.05)
 
 ## Model 4: Change the response variable
 
