@@ -251,8 +251,8 @@ washington_buffered_20km <- NWIS_join_sf_utm[washington_buffered,]
 #25 Plot
 ggplot() +
   geom_sf(data = counties_sf_utm, fill="white",color='gray') +
-  geom_sf(data = washington_utm, color = 'royalblue')  +
-  geom_sf(data = washington_buffered_20km, color='pink', size=1) + 
-  geom_sf(data = washington_intersect, color='darkgreen', size=1) 
+  geom_sf(data = washington_utm, fill = 'yellow')  +
+  geom_sf(data = washington_buffered_20km, color='blue', size=1) + 
+  geom_sf(data = washington_intersect, color='red', size=1) 
 
 ```
