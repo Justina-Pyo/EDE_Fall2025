@@ -1,0 +1,366 @@
+---
+title: "Lab 4: Covid19 and Nature Inequity"
+author: "Jiyeong Pyo & Yui Kikuchi"
+output:
+  html_document:
+    df_print: paged
+---
+<br>
+
+
+```{r install.library, message=FALSE, warning=FALSE, include=FALSE}
+# Install packages
+list.of.packages <- c("lmtest", "car", "GGally", "purrr", "readxl", "ggrepel", "broom", "stargazer", "tidyverse", "moments","gt") 
+installed_packages <- installed.packages()[, "Package"] 
+missing_packages <- setdiff(list.of.packages, installed_packages) 
+
+if (length(missing_packages) > 0) {
+  install.packages(missing_packages)
+}
+
+invisible(lapply(list.of.packages, library, character.only = TRUE))
+```
+
+```{r include=FALSE}
+rm(list = ls())
+```
+
+**1. Introduction (10 points)**
+The COVID-19 pandemic has disproportionately impacted low-income populations and communities of color (POC) which often experience nature inequity or reduced access to greenness and parks. This concept of "stacked inequity" forms the basis for the central question posed by Spotswood et al. (2021), asking "Is there a statistical relationship between nature access and COVID-19 case rates, even after considering confounding variables like income and race?"
+
+The authors used dataset at the ZIP code level for 17 U.S. states, complied public health data from state department of health websites , sociodemographic data from the US Census Bureau's American Community Survey (ACS) , and nature access metrics derived from satellite imagery and public park databases.
+ 
+Our research also used Covid19 as the response variable which measures the cumulative COVID-19 cases per 100,000 people and is based on data collected during the early phase of the pandemic, up to September 2020. The primary explanatory variables include two key metrics for nature access: NDVI (Normalized Difference Vegetation Index, a measure of greenness) and PctPark (the percentage of a ZIP code occupied by public parks). To isolate the effect of nature, we also include the confounding variables from the original study: medInc (median income), Race (the majority racial/ethnic group), medAge (median age), PopDens (population density), Urban (a census designation), and Arid (an aridity index).
+
+We hypothesize a negative relationship between nature access and disease rates. Specifically, we expect that higher levels of NDVI will be associated with lower Covid19 case rates. This report will test this hypothesis for the states of Arizona and Pennsylvania.
+
+<br>
+**2. Summary statistics (10 points)**
+Present your summary statistics table (in Appendix). Discuss the data at a high-level (not reporting specific summary stats in prose), but rather the distributions broadly, (e.g., number of observations, presence of outliers, shape of distribution). Refer to the summary stats table in Appendix. You do NOT need to include histograms or boxplots of the data in your final report, although generating them will help with understanding the data.
+
+2.1. Arizona 
+
+<br>
+2.2 Pennsylvania 
+ There are 1501 observations for the state of Pennsylvania.The response variable, Covid19, is strongly right-skewed. This shape indicates that while most ZIP codes had lower case counts, there was a significant presence of high-value outliers, pulling the mean higher than the median. This right-skew is also reported in the PctPark, popDens, and medInc variables.The NDVI variable exhibits a strong left-skew, implying that most ZIP codes in the sample possess relatively high greenness values. Finally, the medAge and Arid variables display relatively symmetrical distributions with low skewness, suggesting a more balanced spread of values.The detailed description is available in Appendix Table 2. 
+
+
+
+<br>
+**3. Model interpretation and limitations (30 points)**
+Develop and interpret one model (response: Covid19) for each of the states your group selected. Use the scaled variables in your analysis. Be sure to interpret the slope estimates (only of those that are statistically significant).  Report their significance in the models. Be sure to report adjusted R2. Report your model results in table format in the Appendix. Refer to tables in your discussion.
+
+Also in this section, you should discuss modeling limitations. What modeling approach did the Spotswood et al. use and why? What are the limitations of your modeling approach? How did Spotswood et al., deal with these limitations? 
+
+
+
+3.1 Arizona
+
+<br>
+3.2. Pennsylvania 
+For Pennsylvania, we developed an OLS regression model using a log-transformed Covid19 response variable due to the data's severe skewness. The model's Adjusted R-squared was 0.1789, indicating that our selected variables explain approximately 17.9% of the variance in COVID-19 counts. We found that Urban were associated with 128% higher case counts than Rural areas (p < 0.001), while Black and Hispanic majority ZIP codes were associated with 136% and 356% higher counts, respectively, compared to White's ZIP codes (p < 0.05). Among the nature variables, PctPark was associated with a 2.4% decrease in cases for each percentage point increase (p < 0.001), though NDVI was not found to be statistically significant in this model.
+
+<br>
+3.3 Model limitation
+This OLS model has significant limitations. While we tried to compensate with log-transforms (Covid19 and popDen), is not designed for non-normal data, where variance greater than the mean. Furthermore, this OLS model separately conducted in two states which  fails to account for spatial autocorrelation, violating the assumption of independent errors and making our p-values unreliable. Spotswood et al. (2021) addressed these issues by using a Negative Binomial Generalized Linear Mixed Model (GLMM). The Negative Binomial distribution is appropriate for overdispersed count data , and by including STATE as a random effect, their model properly accounted for the non-independence of ZIP codes clustered within states.
+
+
+<br>
+**4. Assumptions (20 points)**
+Discuss whether the assumptions of OLS are met in the models. Provide evidence to support your claims (e.g., Breusch Pagan test, VIF, residual vs fitted plots, etc..). You do NOT need to address spatial autocorrelation in your analysis or endogeneity. 
+
+
+4.1 Arizona 
+
+<br>
+4.2 Pennsylvania 
+ First of all, the OLS model should meet linearity assumption. According to the residuals vs fitted plot, the red line on the plot is placed at zero and not flat, suggesting the linearity assumption is violated. 
+ Residuals vs. Leverage plot shows no points are over the Cook's distance lines, suggesting the model is not influenced by extreme datasets.
+  The Variance Inflation Factor(VIF) shows the highest value is 2.127(NDVI), showing there is no multicollinearity issue in this model.
+ The studentized Breush-Pagan test is used for checking homoscedasticity.We can reject the null hypothesis(p < 0.05),  indicating the homoscedasticity assumption is violated. The Scale-location plot's decreasing trend line consistently shows the heteroscadasity problem.
+ To sum up, our OLS model for Pennsylvania violates the linearity and homoscedasticity assumption while meeting the multicollinearity assumption. 
+
+
+<br>
+**5. Conclusions (10 points)**
+Discuss the major findings across the states. What was found to be significant?  How did your results differ across states and from the findings of Spotswood et al.?
+In the Spotswood et al. the 
+
+<br>
+**6. Appendix (10 points)**
+Professionalism of your appendix. Must include key figures reported above. Clearly labelled and titled.
+
+
+```{r include=FALSE}
+states<-read_csv("Justina/ENV710/states.csv")
+```
+
+
+```{r include=FALSE}
+table(states$STATE)
+```
+
+
+
+```{r include=FALSE}
+AZstates<-states%>%
+  subset(STATE=="Arizona")
+head(AZstates)
+
+```
+
+
+Table 1: Summary Statistics of Arizona
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+variable <- tibble(variable = c("Covid19", "NDVI", "PctPark", "medInc", "medAge", "Arid", "popDens"))
+  
+AZsummary_table <- AZstates %>%
+  pivot_longer(cols = c("Covid19", "NDVI", "PctPark", "medInc", 
+                        "medAge", "Arid", "popDens"), 
+               names_to = "variable", 
+               values_to = "value") %>% 
+  group_by(variable) %>%
+  summarise(
+    N = sum(!is.na(value)),
+    Mean = round(mean(value, na.rm = TRUE), 2),
+    Median = round(median(value, na.rm = TRUE), 2),
+    SD = round(sd(value, na.rm = TRUE), 2),
+    Skewness = round(skewness(value, na.rm = TRUE), 2)
+  ) %>%
+  select(variable, N, Mean, Median, SD, Skewness)
+
+gt_table <- gt(AZsummary_table, caption="Summary Statistics of Arizona", auto_align = FALSE)
+gt_table
+
+```
+
+
+```{r include=FALSE}
+PAstates<-states%>%
+  subset(STATE=="Pennsylvania")
+head(PAstates)
+```
+
+
+Table 2: Summary Statistics of Pennsylvania
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+variable <- tibble(variable = c("Covid19", "NDVI", "PctPark", "medInc", "medAge", "Arid", "popDens"))
+  
+PAsummary_table <- PAstates %>%
+  pivot_longer(cols = c("Covid19", "NDVI", "PctPark", "medInc", 
+                        "medAge", "Arid", "popDens"), 
+               names_to = "variable", 
+               values_to = "value") %>% 
+  group_by(variable) %>%
+  summarise(
+    N = sum(!is.na(value)),
+    Mean = round(mean(value, na.rm = TRUE), 2),
+    Median = round(median(value, na.rm = TRUE), 2),
+    SD = round(sd(value, na.rm = TRUE), 2),
+    Skewness = round(skewness(value, na.rm = TRUE), 2)
+  ) %>%
+  select(variable, N, Mean, Median, SD, Skewness)
+
+gt_table <- gt(PAsummary_table, caption="Summary Statistics of Pennsylvania", auto_align = FALSE)
+gt_table
+```
+<br>
+Figure 1: Scatter plot of Arizona 
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggpairs(AZstates, columns = c(16,17,7,19,12), title = "",  
+        axisLabels = "show",
+        lower = list(continuous = wrap("points", size = 0.4)),
+        upper = list(continuous = wrap("cor", size = 3)))+
+  theme( #adjust the axis labels
+    axis.text.x = element_text(size = 5),
+    axis.text.y = element_text(size = 5),
+    strip.text.x = element_text(size = 5),  
+    strip.text.y = element_text(size = 5)
+  )
+```
+<br>
+Figure 2: Scatter plot of Arizona 
+```{r echo=FALSE}
+ggpairs(AZstates, columns = c(16,15,13,20,9), title = "",  
+        axisLabels = "show",
+        lower = list(continuous = wrap("points", size = 0.4)),
+        upper = list(continuous = wrap("cor", size = 3)))+
+  theme( #adjust the axis labels
+    axis.text.x = element_text(size = 5),
+    axis.text.y = element_text(size = 5),
+    strip.text.x = element_text(size = 5),  
+    strip.text.y = element_text(size = 5)
+  )
+```
+
+```{r include=FALSE}
+glimpse(AZstates)
+```
+
+```{r include=FALSE}
+log_AZstate <- AZstates %>%
+  mutate(log_Covid19 = log(Covid19+1),
+         log_popDens = log(popDens+1))
+```
+
+```{r include=FALSE}
+glimpse(log_AZstate)
+```
+<br>
+Figure 3: Scatter plot of Arizona (logged)
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggpairs(log_AZstate, columns = c(22,17,7,19,12), title = "",  
+        axisLabels = "show",
+        lower = list(continuous = wrap("points", size = 0.4)),
+        upper = list(continuous = wrap("cor", size = 3)))+
+  theme( #adjust the axis labels
+    axis.text.x = element_text(size = 5),
+    axis.text.y = element_text(size = 5),
+    strip.text.x = element_text(size = 5),  
+    strip.text.y = element_text(size = 5)
+  )
+```
+
+Figure 4: Scatter plot of Arizona (logged)
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggpairs(log_AZstate, columns = c(22,15,13,20,23), title = "",  
+        axisLabels = "show",
+        lower = list(continuous = wrap("points", size = 0.4)),
+        upper = list(continuous = wrap("cor", size = 3)))+
+  theme( #adjust the axis labels
+    axis.text.x = element_text(size = 5),
+    axis.text.y = element_text(size = 5),
+    strip.text.x = element_text(size = 5),  
+    strip.text.y = element_text(size = 5)
+  )
+```
+
+<br>
+```{r message=FALSE, warning=FALSE, include=FALSE}
+glimpse(PAstates)
+```
+<br>
+Figure 5: Scatter plot of Pennsylvania
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggpairs(PAstates, columns = c(16,17,7,19,12), title = "",  
+        axisLabels = "show",
+        lower = list(continuous = wrap("points", size = 0.4)),
+        upper = list(continuous = wrap("cor", size = 3)))+
+  theme( #adjust the axis labels
+    axis.text.x = element_text(size = 5),
+    axis.text.y = element_text(size = 5),
+    strip.text.x = element_text(size = 5),  
+    strip.text.y = element_text(size = 5)
+  )
+```
+
+<br>
+Figure 6: Scatter plot of Pennsylvania
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggpairs(PAstates, columns = c(16,15,13,20,9), title = "",  
+        axisLabels = "show",
+        lower = list(continuous = wrap("points", size = 0.4)),
+        upper = list(continuous = wrap("cor", size = 3)))+
+  theme( #adjust the axis labels
+    axis.text.x = element_text(size = 5),
+    axis.text.y = element_text(size = 5),
+    strip.text.x = element_text(size = 5),  
+    strip.text.y = element_text(size = 5)
+  )
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+log_PAstate <- PAstates %>%
+  mutate(log_Covid19 = log(Covid19+1),
+         log_popDens = log(popDens+1))
+
+```
+
+<br>
+Figure 7: Scatter plot of Pennsylvania(logged)
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggpairs(log_PAstate, columns = c(22,17,7,19,12), title = "",  
+        axisLabels = "show",
+        lower = list(continuous = wrap("points", size = 0.4)),
+        upper = list(continuous = wrap("cor", size = 3)))+
+  theme( #adjust the axis labels
+    axis.text.x = element_text(size = 5),
+    axis.text.y = element_text(size = 5),
+    strip.text.x = element_text(size = 5),  
+    strip.text.y = element_text(size = 5)
+  )
+```
+<br>
+Figure 8: Scatter plot of Pennsylvania(logged)
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggpairs(log_PAstate, columns = c(22,15,13,20,23), title = "",  
+        axisLabels = "show",
+        lower = list(continuous = wrap("points", size = 0.4)),
+        upper = list(continuous = wrap("cor", size = 3)))+
+  theme( #adjust the axis labels
+    axis.text.x = element_text(size = 5),
+    axis.text.y = element_text(size = 5),
+    strip.text.x = element_text(size = 5),  
+    strip.text.y = element_text(size = 5)
+  )
+```
+
+Table 3: OLS result of Arizona
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+log_AZstate$Race <- as.factor(log_AZstate$Race)
+
+log_AZstate$Race <- relevel(log_AZstate$Race, ref = "White")
+
+model <-
+  lm(log_Covid19 ~  NDVI + PctPark + medInc + Race + Urban + medAge + Arid + log_popDens, 
+     data =log_AZstate , na.action = na.exclude)
+
+summary(model)
+```
+
+<br>
+Figure 9: Testing assumption for Arizona 
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Test for assumptions
+par(mfrow=c(1,1))
+plot(model, 1) # residual vs fitted
+plot(model, 3) # scale location
+plot(model, 5)  #Cook's distance
+lmtest::bptest(model)  # Breusch-Pagan test
+car::vif(model) #vif test
+```
+
+
+
+<br>
+Table 4: OLS result of Pennsylvenia 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+log_PAstate$Race <- as.factor(log_PAstate$Race)
+
+log_PAstate$Race <- relevel(log_PAstate$Race, ref = "White")
+
+model.2 <-
+  lm(log_Covid19 ~  NDVI + PctPark + medInc + Race + Urban + medAge + Arid + log_popDens, 
+     data =log_PAstate , na.action = na.exclude)
+
+summary(model.2)
+```
+<br>
+Figure 10: Testing assumption of Pennsylvenia
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Test for assumptions
+par(mfrow=c(1,1))
+plot(model.2, 1) # residual vs fitted
+plot(model.2, 3) # scale location
+plot(model.2, 5)  #Cook's distance
+lmtest::bptest(model.2)  # Breusch-Pagan test
+car::vif(model.2) #vif test
+```
+
+
+<br>
+**7. Reference:**
+Spotswood, E.N., Benjamin, M., Stoneburner, L. et al. Nature inequity and higher COVID-19 case rates in less-green neighbourhoods in the United States. Nat Sustain 4, 1092–1098 (2021). https://doi.org/10.1038/s41893-021-00781-9
+

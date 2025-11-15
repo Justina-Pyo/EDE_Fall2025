@@ -1,0 +1,126 @@
+---
+title: "Covid19 and Nature Inequity"
+author: "Group Member Names Go Here"
+
+---
+
+**MAKE SURE THAT ALL FOUR GIS FILES ARE IN YOUR FOLDER BEFORE RUNNING CHUNKS. Make sure none end in .txt**
+
+Download to folder:
+
+Covid_Nature_FINAL.dbf
+Covid_Nature_FINAL.prj
+Covid_Nature_FINAL.shp
+Covid_Nature_FINAL.shx
+
+
+
+
+```{r libraries, include=FALSE}
+
+# Require Packages 
+
+if(!require(GGally)) {
+  install.packages("GGally")
+  require(GGally)
+}
+
+if(!require(devtools)) {
+  install.packages("devtools")
+  require(devtools)
+}
+
+if(!require(dplyr)) {
+  install.packages("dplyr")
+  require(dplyr)
+  }
+
+if(!require(ggplot2)) {
+  install.packages("ggplot2")
+  require(ggplot2)
+  }
+
+if(!require(ggthemes)) {
+  install.packages("ggthemes")
+  require(ggthemes)
+  }
+
+if(!require(gridExtra)) {
+  install.packages("gridExtra")
+  require(gridExtra)
+  }
+
+if(!require(gt)) {
+  install.packages("gt")
+  require(gt)
+  }
+
+if(!require(knitr)) {
+  install.packages("knitr")
+  require(knitr)
+  }
+
+if(!require(moments)) {
+  install.packages("moments")
+  require(moments)
+  }
+
+
+if(!require(tidyverse)) {
+  install.packages("tidyverse")
+  require(tidyverse)
+  }
+
+if(!require(raster)) {
+  install.packages("raster")
+  require(raster)
+  }
+
+if(!require(janitor)) {
+  install.packages("janitor")
+  require(janitor)
+  }
+
+if(!require(sp)) {
+  install.packages("sp")
+  require(sp)
+  }
+
+if (!require("rspatial")) devtools::install_github('rspatial/rspatial')
+
+if(!require(rgdal)) {
+  install.packages("rgdal")
+  require(rgdal)
+}
+
+if(!require(spdep)) {
+  install.packages("spdep")
+  require(spdep)
+}
+
+if(!require(spatialreg)) {
+  install.packages("spatialreg")
+  require(spatialreg)
+}
+
+if(!require(car)) {
+  install.packages("car")
+  require(car)
+}
+
+if(!require(showtext)) {
+  install.packages("showtext")
+  require(showtext)
+}
+
+```
+
+
+
+
+```{r}
+states<-readOGR("Covid_Nature_Data_FINAL.shp")
+states.df<-states@data
+head(states.df)
+```
+

@@ -1,0 +1,116 @@
+---
+title: "Robust Standard Error Tutorial"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+
+
+```{r chunk1}
+library(lmtest)
+library(sandwich)
+library(stargazer)
+library(dplyr)
+
+```
+
+We’ll use the built-in mtcars dataset, which includes data on 32 car models
+We define the following variables:
+
+Variable	Description	Type
+mpg	  Miles per gallon (fuel efficiency)	                Continuous (response variable)
+wt	  Weight of car (in 1000 lbs)	                        Continuous
+hp	  Gross horsepower	                                  Continuous
+disp	Engine displacement (cubic inches)	                Continuous
+qsec  Number of seconds it takes to drive a quarter mile. Continuous
+
+```{r}
+glimpse(mtcars)
+```
+* Heavy car = worse fuel efficiency (model 1)
+* model 2 capture the interaction of the variables
+```{r}
+# Model 1: Simple model 
+model1 <- lm(mpg ~ wt, data = mtcars)
+summary(model1)
+
+
+# Model 2: Interaction between weight and horsepower
+model2 <- lm(mpg ~ wt + hp + qsec + wt:hp, data = mtcars)
+summary(model2)
+
+
+```
+
+**Discuss the following plots in terms of zero conditional mean, homoscedasticity, and outliers/influence.**
+
+Plots for Model 1
+
+```{r}
+plot(model1, 1)
+plot(model1, 3)
+plot(model1, 4)
+```
+
+The zero conditional mean is not met because the red line shows that the conditional mean varies because of the outliers. In terms of the homoscedasticity the spread of the residual is varied within the middle, however, overall it met the homoscedasticity condition. The cook's distance 0.125 -> 3 cars in the outliear. Independent condition -> different standard -> national difference. Scale location -> homoscedasticity vs heteroscedasticity. 
+
+Plots for Model 2
+
+```{r}
+plot(model2, 1)
+plot(model2, 3)
+plot(model2, 4)
+```
+The zero conditional mean is met because the red line shows that the conditional mean slightly different between 20-25. In terms of the homoscedasticity the spread of the residual quite smiliar to say it met the homoscedasticity condition.
+
+
+
+**Discuss the Breusch Pagan Test Results**
+
+```{r}
+bptest(model1)
+bptest(model2)
+
+```
+
+According to th Breusch-Pagan test, both of the model 1 and 2 cannot reject the null hypothesis, suggesting that models don't show he heteroscedasticity. We can use robust standard error -> different variance and corvariance matrix
+
+
+**Using coeftest (sandwich package) we will now use robust standard errors. Compare to initial models.** 
+**What changed? What didn't?**
+
+Coeftest is designed for testing of estimated coefficients. The issue was not the biased problem so the beta is constant. The p value for qsec increased. The model 2's standard level and the confident level changed differently. Even though they conduct the Bresuch pegan test, it is better to use this coeftest.
+
+```{r}
+coeftest(model1, vcov = vcovHC(model1, type = "HC3"))
+coeftest(model2, vcov = vcovHC(model2, type = "HC3"))
+```
+
+**Now let's make it pretty with stargazer**
+
+```{r, eval=T, results='asis',warning = F}
+
+
+se_conventional <- sqrt(diag(vcov(model1))) ## calculating SE as usual
+se_robust       <- sqrt(diag(vcovHC(model2, type = "HC3"))) ## calculating robust SE
+
+
+html_out <- capture.output(
+  stargazer(model1, model2,
+    type = "html",
+    title = "Two OLS Models (Robust HC3 SEs)",
+    dep.var.labels = "Miles per Gallon (mpg)",
+    column.labels = c("Model 1: mpg ~ wt", "Model 2: + hp + qsec + wt:hp"),
+    #covariate.labels = c("Weight (1000 lbs)", "Horsepower", "1/4 mile time (sec)", "wt × hp"),
+    se = list(se_conventional, se_robust),
+    keep.stat = c("n","rsq","adj.rsq","f")
+  )
+)
+cat(paste(html_out, collapse = "\n"))
+```
+
+
+
+

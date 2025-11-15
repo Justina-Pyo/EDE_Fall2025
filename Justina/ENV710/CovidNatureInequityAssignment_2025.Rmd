@@ -1,0 +1,125 @@
+---
+title: "Lab 4: Covid19 and Nature Inequity"
+author: "Put Everyone's Name Here"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    df_print: paged
+---
+
+In this group lab assignment, your group will examine the relationship between Nature Inequity and Covid19, as discussed and analyzed by Spotswood et al, 2021. Spotswood et al. define access to nature as the following: 
+
+"Access to nature is also unequally distributed in the United States, with vegetation and parks often less available in low-income neighbourhoods and communities of colour. We define ‘nature’ as greenness (or the total amount of vegetation, including trees, shrubs and grass) and urban parks; while these two metrics do not fully describe nature, they nonetheless capture two important elements of what is often identified as ‘nature’ in urban settings." 
+
+Whereas Spotswood et al. conducted their analysis on the relationship between Covid19 counts and access to nature for a group of 17 states, your group will conduct your analysis at the state level (number of states = number of group members). In completing this group assignment, you should do the following: 
+
+(1) Review the Spotswood et al (2021) paper and their R code (two different scripts, the Covid Nature Analysis script is most pertinent). You will focus your analysis on the relationship between Covid19 counts and the following explanatory variables: greenspace (NDVI and park percent), income, race, urban, age, aridity, and population density. 
+
+(2) Develop **one** summary statistics table for key variables in the Spotswood et al paper that includes your selected states (2-3 states). Place this table in the Appendix.
+
+(3) To aid in model development, develop scatterplots (or scatterplot matrix) and correlation coefficients of relevant variables. Put these figures in the Appendix.
+
+(4) Following the variable selection of Spotswood et al., develop an OLS model explaining Covid counts based on a set of explanatory variables (same as Spotswood). Use an OLS approach to your modeling (recognizing the limitations of using OLS for these data/modeling). 
+
+(4) Use appropriate tools to test assumptions of each of the models. At a minimum, develop and discuss (1) residual vs fitted plot; and (2) residuals vs leverage plot. These plots should be placed in the Appendix.
+
+#### Format of the report
+
+**Introduction (10 points)**
+Introduce the central question posed by Spotwood et al, describe (in words) the data and their sources. Discuss your response variable (e.g., what does it measure/when was it measured) and explanatory variables. What relationships are you/Spotswood et al. hypothesizing? What states did you select?
+
+**Summary statistics (10 points)**
+Present your summary statistics table (in Appendix). Discuss the data at a high-level (not reporting specific summary stats in prose), but rather the distributions broadly, (e.g., number of observations, presence of outliers, shape of distribution). Refer to the summary stats table in Appendix. You do NOT need to include histograms or boxplots of the data in your final report, although generating them will help with understanding the data.
+
+**Model interpretation and limitations (30 points)**
+Develop and interpret one model (response: Covid19) for each of the states your group selected. Use the scaled variables in your analysis. Be sure to interpret the slope estimates (only of those that are statistically significant).  Report their significance in the models. Be sure to report adjusted R2. Report your model results in table format in the Appendix. Refer to tables in your discussion.
+
+Also in this section, you should discuss modeling limitations. What modeling approach did the Spotswood et al. use and why? What are the limitations of your modeling approach? How did Spotswood et al., deal with these limitations? Be sure to discuss the authors instrumental variable modeling approach (the reasoning behind it). 
+
+**Assumptions (20 points)**
+Discuss whether the assumptions of OLS are met in the models. Provide evidence to support your claims (e.g., Breusch Pagan test, VIF, residual vs fitted plots, etc..). You do NOT need to address spatial autocorrelation in your analysis or endogeneity. 
+
+**Conclusions (10 points)**
+Discuss the major findings across the states. What was found to be significant?  How did your results differ across states and from the findings of Spotswood et al.?
+
+**Appendix (10 points)**
+Professionalism of your appendix. Must include key figures reported above. Clearly labelled and titled. 
+
+**Professional writing and Rmd Development (10 points)**
+The report should be written completely in your Rmd and knitted to html to turn in. The writing should be clearly organized and follow the structure outlined above. Please proofread for clarity and grammar. R codes, messages, warnings, etc.. should all be hidden from the html. 
+
+#### Some Rmd to get you started.
+
+Here is some code to get you started. I developed this code based on the R scripts that the authors provided. The following chunk will install the packages that you will need to read the data. R will ask you if you want to update all packages with rspatial. Type 1 for All when it prompts you to do so.
+
+The chunk below loads data using the readOGR function (in the package rgdal). This function allows us to read in spatial vector files such as shapefiles. Shapefiles are a type of file in Geographic Information Systems (GIS) that stores geometric and attribute data.
+
+Read in the the Covid_Nature Data from the shape file (.shp) from Spotswood et al (2021).. 
+```{r}
+library(readr)
+states <- read_csv("Justina/ENV710/states.csv")
+View(states)
+```
+
+#### Data Dictionary of the states data. The unit of analysis for these data is zip code. 
+
+##### **County:** County name
+##### **STATE:** State name 
+##### **ZCTA5CE10:** ZIP Code numerical code
+##### **INTPTLAT10:** Latitude
+##### **INTPTLON10:** Longitude 
+##### **BUI:** Built Up Intensity 
+##### **PctPark:** Percentage of ZIP Code occupied by publicly accessible open space. Park area from original dataset created for this project combining publicly available datasets. See Extended Data Table 4 for details. Area of ZIP from ACS 5 year 2018: ALAND10.
+##### **fips:** County code 
+##### **PopDens:** Population density (from ACS 5 year 2018: AJWBE001/ALAND10) 
+##### **propPOC:** Proportion of population in ZIP Code people of color (all non-white and hispanic)  from ACS 5 year 2018: 1 -  (AJWVE003/AJWBE001) 
+##### **POC:** Is ZIP Code majority white or majority people of color? >50% white classified as majority white 
+##### **Race:** what is majority (>50%) race? If no race is >50%, classified as mixed
+##### **medAge:** median age (from ACS 5 year 2018: AJWCE001)
+##### **totPop:** total population size of ZIP Code (from ACS 5 year 2018: AJWBE001)
+##### **Urban:** Census designations "Urbanized Area" and "Urban Clusters" Collapsed to "Urban", "Non-Urban" classified as "Rural"
+##### **Covid19:** Covid-19 Cases per 100,000 people (downloaded and compiled from state health department websites)
+##### **NDVI:** Normalized Difference Vegetation Index 
+##### **propWht:** Proportion white population in ZIP Code (from ACS 5 year 2018: AJWVE003/AJWBE001)
+##### **medInc:** median Income (from ACS 5 year 2018: AJZAE001)
+##### **Arid:** Aridity Index
+##### **Days:** Number of days since first recorded case in county in which ZIP Code is located. Data taken from New York Times 
+
+
+The authors scaled their variables using the scale() function--this function subtracts the mean of a variable from all observations of that variable (this is called centering). The function then scales these centered values by dividing each observation of the centered variable by the standard deviation (of the centered variable). More can be read here:  https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/scale
+
+**I recommend that you DO NOT SCALE the variables.**
+
+Your group will analyze one state per group member. Let's look at the count of zip codes per each state.  
+
+```{r}
+table(states$STATE)
+```
+
+
+In the chunk below, subset states to select only the zip codes for each of the two or three states that you will analyze. To subset spatial files, you need to use the subset() function. The chunk below subsets the BG that are located in North Carolina. You don't necessarily need to select North Carolina as one of your states--this is just an example.
+
+```{r}
+sub_states<- states %>%
+  subset(STATE=="Arizona")
+head(NCstates)
+
+
+```
+
+
+
+
+Spotswood et al. 2021 'Nature inequity and higher COVID-19 case rates in less green neighbourhoods in the United States' DOI: https://doi.org/10.1038/s41893-021-00781-9
+```{r}
+f1<-NDVI_US ~ propPOC_scaled + medInc_scaled + popDens_scaled + Arid_scaled
+m <- lm(f1, data=USdat)
+summary(m)
+```
+
+Corresponding author: Erica Spotswood - San Francisco Estuary Institute
+email: ericas@sfei.org
+
+Nature- Equity Analysis for all urbanized areas in the US 
+
+

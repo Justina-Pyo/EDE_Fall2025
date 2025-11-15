@@ -1,5 +1,5 @@
 ---
-title: "Lab2 Jiyeong Yui"
+title: "Lab2: Comparison of Means"
 author: "Jiyeong Pyo, Yui Kikuchi"
 output:
   html_document:
@@ -7,6 +7,8 @@ output:
     number_sections: true
     toc_depth: 2
 ---
+
+<br>
 
 ```{r chunk_1, include=F}
 
@@ -24,7 +26,7 @@ library(here)
 
 ```{r chunk_2,include=F}
 PEC <- read.csv(
-  file=here("~/EDE_Fall2025/Justina/ENV710/PEC_final.csv"), 
+  file=here("/Users/yui/Desktop/ENV 710/Lab 2/PEC_final.csv"), 
   stringsAsFactors = TRUE
    )
 PEC_remove <- PEC %>%
@@ -38,16 +40,186 @@ PEC_filtered <-PEC %>%
 
 ```
 
-In terms of cleaning the Data, Chilla's first year(2015) and the last year(2020) was missing and Esmeraldas's last year(2020) data was missing. So that the comparison will be excluding these canton.  
+**1. Introduction**
 
+Residential electrification has accelerated in Ecuador as households adopted a program, PEC, which supports shift from gas to induction cookstoves. This paper investigates changes in electricity consumption due to the transition. Main discussions are high program adopted area’s electricity consumption change over years, comparing 2015 and 2020, as well as low adopted areas to contrast the effect of the program implementation. 
 
-[B]
+We use the dataset compiled by Gould et al. (2023), which analyzes PEC in Ecuador from 2015 to 2021. The original study links canton data to program enrollment and evaluates outcomes, including electricity consumption, health, and greenhouse gas emissions, using a difference-in-differences framework. Our analysis draws from the same dataset, focusing specifically on descriptive comparisons of electricity consumption by program adoption.
+
+The variables in the dataset are electricity consumption per canton, measured in kilowatt-hours (kWh). PEC enrollment rate, used to classify areas into high-adoption and low-adoption groups (grouping into 1 and 0), and Cantons, area-level tracking monthly across years (2015-2020). 
+
+Throughout, these data allow us to provide an evident effectiveness of the program, making the differences across time and adoption rates apparent. 
+
+<br>
+
+**2. Data Description**
+
+The electricity consumption (kWh) data of high PEC enrollment cantons includes 4,008 observations. We have omitted a total of 22 monthly observations from high adopted canton data, (Esmeraldas in 2020 and Olmedo2 in 2018) which do not have a full 12 months, due to the influence on accuracy of investigation. Summary statistics (Figure 1) show a very wide range of 4,158 to 182,962,712 kWh, with an average of 4,444,055 kWh and standard deviation of 18,151,426 kWh. The middle 50% of observations lie between 464,256.5 and  2,152,409 kWh. These are reported on the original scale.
+
+The distribution is strongly right skewed, which has a positive skewness of 7.11. The high maximum value relative to the upper quartile, and the skewness indicates a long right tail, pulling the mean above the 75th percentile. This implies the presence of high consumption outliers, as shown on Figure 2. 
+
+There are data of 3864 observations for low enrollment area energy consumption with the original scale (Figure 4). We have also omitted 22 monthly observations (Chilla 2015 and 2020) from this dataset due to the same reasons of missing a month of data per year. This data also have a wide range of 26,120 kWh to 39,806,039 kWh, though it is much smaller compared to the high-enrollement data. 
+
+The large gap between 75th percentile, 777802.2 kWh, and the maximum, with a skewness of 5.67, indicates a long right tail, pulling the mean above the upper quartile. Low PEC enrollment summary statistics also affected strongly by the high-consumption outliers, as shown on Figure 5.
+
 ```{r chunk_3, Filtering PEC high canton,include=F}
 PEC_High <- PEC_filtered %>%
   subset(PEC_filtered$high_adopt==1)
 glimpse(PEC_High)
 ```
-```{r}
+
+```{r,include=F}
+PEC_High_filtered <- PEC_High %>%
+  group_by(canton,year)%>%
+  summarise(kwh_total=sum(kwh_total))%>%
+  filter(year=='2015'|year=='2020')
+  
+  
+head(PEC_High_filtered)
+```
+
+```{r,filtering for wide, message=FALSE, include=F}
+PEC_High_filtered_wide<-PEC_High_filtered %>%
+  dplyr::select(canton, year, kwh_total)%>%
+  pivot_wider(names_from = year, values_from = kwh_total) %>%
+  rename(first_year="2015")%>%
+  rename(last_year="2020")
+
+PEC_High_filtered_wide
+```
+
+<br>
+
+**3. Statistical Analysis and Discussion**
+
+```{r chunk_6, Paired t-test,include=F}
+t.test(PEC_High_filtered_wide$first_year, PEC_High_filtered_wide$last_year,alternative="greater", paired=T)
+```
+
+```{r,echo=FALSE,include=F}
+PEC_High_filtered_wide<-PEC_High_filtered_wide  |>
+      mutate(diff=last_year-first_year)
+
+head(PEC_High_filtered_wide)
+```
+
+```{r,message=FALSE,include=F}
+#Null hypothesis: the sample in our case the differences was pulled from a normally distributed population. 
+shapiro.test(PEC_High_filtered_wide$diff)
+skewness(PEC_High_filtered_wide$diff)
+```
+
+```{r,checking Logarithmic,message=FALSE, include=F}
+PEC_High_filtered_wide<-PEC_High_filtered_wide|>
+    mutate(log.first_year=log(first_year),    				       	
+           log.last_year=log(last_year), 
+			     diff.in.log=(log.first_year-log.last_year),
+           log.ratio=log(first_year/last_year))
+head(PEC_High_filtered_wide, 6)
+```
+```{r,t-test of logged data,message=FALSE,include=F}
+t.test(PEC_High_filtered_wide$log.first_year, PEC_High_filtered_wide$log.last_year, paired=TRUE, alternative = "greater")
+```
+
+```{r,shapiro test,message=FALSE,include=F}
+shapiro.test(PEC_High_filtered_wide$diff.in.log)
+skewness(PEC_High_filtered_wide$diff.in.log)
+```
+
+For comparing the mean electricity consumption levels between the first (2015) and last year (2020) in high adoption areas, we used paired t-tests. According to the high p-value (t = -2.4966, df = 54, p = 0.9922), we cannot reject the null hypothesis, which means there is no statistically significant increase in electricity consumption. Moreover, the difference in electricity consumption was calculated as 2020 minus 2015 and the negative mean difference (-8416716) indicates that there was no consumption increase over time.
+
+The distribution of the differences shows that the electricity consumption between 2020 and 2015 in high adoption area is highly right-skewed, indicating the majority experienced little or no consumption change while few cantons experienced consumption increase (Figure 3).
+
+We conducted the Shapiro-Wilk test for normality test and it showed strong deviation from normality indicating the t-test assumption of normality is violated (W = 0.26874, p-value = 4.638e-15). For correcting skewness, we used log transformation, yet, a paired t-test on the logged data showed no significant increase (t = -11.841, df = 54, p-value = 1). The Shapiro-Wilk test indicates the normality is not violated after the transformation (W = 0.96951, p-value = 0.1751).
+
+In conclusion, the raw high-enrollment data violated the normality condition. After log transformation, the normality condition is satisfied, yet there was no consumption increase. Thus, the log-transformed data were considered the most appropriate.
+
+```{r,filtering,message=FALSE,include=F}
+PEC_Low <- PEC_filtered %>%
+  subset(PEC_filtered$high_adopt==0)
+glimpse(PEC_Low)
+```
+
+```{r, filtering by years, message=FALSE, include=F}
+PEC_Low_filtered <- PEC_Low %>%
+  group_by(canton,year)%>%
+  summarise(kwh_total=sum(kwh_total))%>%
+  filter(year=='2015'|year=='2020')
+  
+  
+head(PEC_Low_filtered)
+```
+
+```{r,message=FALSE,include=F}
+PEC_Low_filtered_wide<-PEC_Low_filtered %>%
+  dplyr::select(canton, year, kwh_total)%>%
+  pivot_wider(names_from = year, values_from = kwh_total) %>%
+  rename(first_year="2015")%>%
+  rename(last_year="2020")
+
+PEC_Low_filtered_wide
+```
+
+```{r chunk, Paired t-test,message=FALSE,include=F}
+t.test(PEC_Low_filtered_wide$first_year, PEC_Low_filtered_wide$last_year,alternative="greater", paired=T)
+```
+
+```{r,message=FALSE,include=F}
+PEC_Low_filtered_wide<-PEC_Low_filtered_wide  |>
+      mutate(diff=last_year-first_year)
+
+head(PEC_Low_filtered_wide)
+```
+
+```{r,message=FALSE,include=F}
+shapiro.test(PEC_Low_filtered_wide$diff)
+skewness(PEC_Low_filtered_wide$diff)
+```
+
+```{r,logged values,message=FALSE,include=F}
+PEC_Low_filtered_wide<-PEC_Low_filtered_wide|>
+    mutate(log.first_year=log(first_year),    				       	
+           log.last_year=log(last_year), 
+			     diff.in.log=(log.first_year-log.last_year),
+           log.ratio=log(first_year/last_year))
+head(PEC_Low_filtered_wide, 6)
+```
+
+```{r,echo=FALSE,include=F}
+t.test(PEC_Low_filtered_wide$log.first_year, PEC_Low_filtered_wide$log.last_year, paired=TRUE, alternative = "greater")
+```
+
+```{r,echo=FALSE,include=F}
+shapiro.test(PEC_Low_filtered_wide$diff.in.log)
+skewness(PEC_Low_filtered_wide$diff.in.log)
+```
+ 
+```{r,message=FALSE, include=FALSE}
+wilcox.test(PEC_Low_filtered_wide$first_year, PEC_Low_filtered_wide$last_year, alternative="greater", paired = TRUE)
+```
+Additionally, in low-adoption areas, the paired t-test finds no evidence of an increase in electricity consumption between the first and last year (t = -2.7019, df = 52, p-value = 0.9954). After log transformation, the paired t-test reaches the same conclusion (t = -4.2235, df = 52, p-value = 1), with the estimated mean difference turning negative, suggesting consumption decreased on average.
+
+The paired t-test relies on the normality between pairs. Figure 6 shows a strongly right-skewed distribution of differences, indicating non-normality. The Shapiro-Wilk test on the differences shows severe violation normality (W = 0.42532, p-value = 4.229e−13), and it remains violated even after log transformation (W = 0.68309, p-value = 2.054e−09). Thus, the normality assumption underlying the paired t-test is not satisfied.
+
+Due to strong violation of normality, nonparametric methods are needed for robustness. The Wilcoxon test indicates no significant shift (V = 130, p-value = 1). This result aligns with the t-tests in showing no statistically detectable increase.
+
+<br>
+
+**4. Conclusion**
+
+These results apply to the Ecuadorian cantons observed between 2015 and 2021. Due to the program uptake and geographic coverage were not randomly assigned, external validity is limited and the findings should not be generalized to other settings.
+
+Spatial contiguity, such as shared weather and income patterns, and repeated measurements of five years within cantons likely to have dependence. The distribution of 2015 and 2020 differences is significantly right-skewed and remains non-normal after log transformation, which required nonparametric inference and reduced the accuracy. 
+
+Within these constraints, both high and low adoption areas showed no statistically meaningful increase in electricity consumption.This points out the PEC could promote electrification without increasing energy consumption. However, selection bias caused by different socioeconomic factors should be handled. According to the paper, higher baseline electricity consumers were more likely to enroll (Gould et al., 2023). Future policy makers should examine these biases before applying to policy.
+  
+<br>  
+  
+**5. Appendix**
+
+Figure 1: Summary Statistics of high PEC enrollment data
+
+```{r, echo=F}
 ea.summary<-PEC_High |>  
   
   summarise(n = length(na.omit(kwh_total)),
@@ -59,19 +231,13 @@ ea.summary<-PEC_High |>
             q75=quantile(kwh_total, 0.75, na.rm=TRUE),
             skewness=skewness(kwh_total, na.rm=TRUE))
 
-
 ea.summary 
+
 ```
-```{r,include=F}
-PEC_High_filtered <- PEC_High %>%
-  group_by(canton,year)%>%
-  summarise(kwh_total=sum(kwh_total))%>%
-  filter(year=='2015'|year=='2020')
-  
-  
-head(PEC_High_filtered)
-```
-```{r,message=FALSE,include=F}
+<br>
+Figure 2: Comparison of High PEC Enrollment Area's Energy Consumption in 2015 and 2020
+
+```{r, message=FALSE, echo=F}
 PEC_High_filtered<-PEC_High_filtered %>%
   mutate(year=factor(year, levels=c("2015","2020")))
 
@@ -80,96 +246,36 @@ geom_histogram(col="black")+
 scale_fill_manual(values=c("royalblue", "gray"))
 
 p + facet_grid(year ~ .)+
-labs(x="Energy consumption (kWh)", title="Comaprison of energy consumption in high adopted area",
-     fill="year") +
+labs(
+  x="Energy consumption (kWh)", 
+  title="Comparison of energy consumption", 
+  subtitle = "High adopted area (2015 & 2020)",
+  fill="year") +
  theme(
-    plot.title = element_text(size = 8, color = "navy", hjust = 0.5),
-    axis.title.x = element_text(size = 8, color = "black"),
-    axis.title.y = element_text(size = 8, color = "black")
+    plot.title = element_text(size =12, color = "black", hjust = 0.5),
+    axis.title.x = element_text(size = 10, color = "black"),
+    axis.title.y = element_text(size = 10, color = "black")
   )
 ```
 
-```{r,filtering for wide,message=FALSE,include=F}
-PEC_High_filtered_wide<-PEC_High_filtered %>%
-  dplyr::select(canton, year, kwh_total)%>%
-  pivot_wider(names_from = year, values_from = kwh_total) %>%
-  rename(first_year="2015")%>%
-  rename(last_year="2020")
+<br>
+Figure 3: Difference in High PEC Adopted Area's Energy Consumption (2020-2015)
 
-PEC_High_filtered_wide
-```
-3. Statistical Analysis and Discussion
-
-a. Comparison of Means
-```{r chunk_6, Paired t-test,echo=FALSE,include=F}
-t.test(PEC_High_filtered_wide$first_year, PEC_High_filtered_wide$last_year,alternative="greater", paired=T)
-```
-
-For comparing the mean electricity consumption levels between first year(2015) and last year(2020)in high adoption areas, we used paired t-test methods.sfAccording to the high p-value((t = -2.4966, df = 54, p = 0.9922),we cannot reject the null hypothesis which means that there is no statistically significant increase in electricity consumption. Moreover,the difference in electricity consumption was calculated as 2020 minus 2015 and the negative mean difference(-8416716) indicates that there was no consumption increase over time.
-
-
-```{r,echo=FALSE,include=F}
-PEC_High_filtered_wide<-PEC_High_filtered_wide  |>
-      mutate(diff=last_year-first_year)
-
-head(PEC_High_filtered_wide)
-```
-
-The distribution of the differences shows that the electricity consumption between 2020 and 2015 in high adoption area is highly right-skewed,indicating the majority experienced little or no consumption change while few cantons experienced consumption increase.
-
-```{r,message=FALSE,include=F}
+```{r,warning=FALSE, message=FALSE,echo=F}
 ggplot(data = PEC_High_filtered_wide, aes(x = diff)) +
-  geom_histogram(fill = "lightblue", color = "black", bins = 100) +
+  geom_histogram(fill = "lightblue", color = "black", bins = 20) +
   labs(
     title = "Electricity Consumption Levels in High Adoption Areas",
     subtitle = "Difference between 2015 and 2020",
     x = "Difference (2020 - 2015)"
   ) +
   theme_minimal() +
-  theme(plot.title = element_text(size = 8, color = "navy"))
+  theme(plot.title = element_text(size = 12, color = "black"))
 ```
-b. Discussion of assumptions
-We conducted Shaprio-Wilk test for normality test and it showed strong deviation from normality indicating the t-test assumption of normality is violated (W = 0.26874, p-value = 4.638e-15).
+<br>
+Figure 4: Summary Statistics of low PEC enrollment data
 
-```{r,message=FALSE,include=F}
-#Null hypothesis: the sample in our case the differences was pulled from a normally distributed population. 
-shapiro.test(PEC_High_filtered_wide$diff)
-skewness(PEC_High_filtered_wide$diff)
-```
-
-
-```{r,checking Logarithmic,message=FALSE}
-PEC_High_filtered_wide<-PEC_High_filtered_wide|>
-    mutate(log.first_year=log(first_year),    				       	
-           log.last_year=log(last_year), 
-			     diff.in.log=(log.first_year-log.last_year),
-           log.ratio=log(first_year/last_year))
-head(PEC_High_filtered_wide, 6)
-```
-For correcting skewness, we used log-transformation. After transformation, a paired t-test on the logged data showed no significant increase even after the transformation(t = -11.841, df = 54, p-value = 1). 
-
-```{r,t-test of logged data,message=FALSE,include=F}
-t.test(PEC_High_filtered_wide$log.first_year, PEC_High_filtered_wide$log.last_year, paired=TRUE, alternative = "greater")
-```
-The Shapiro-Wilk test indicates the normality is not violated after log transformation(W = 0.96951, p-value = 0.1751).
-```{r,shapiro test,message=FALSE,include=F}
-shapiro.test(PEC_High_filtered_wide$diff.in.log)
-skewness(PEC_High_filtered_wide$diff.in.log)
-```
- 
-c. Discussin of appropriate test
-  In conclusion, the raw data violated the normality condition. After log transformation, the normality condition is satisfied but there was no consumption increase.So for this comparison, the log-transformed data were considered the most appropriate.
-  
-
-[C]
-
-```{r,filtering,message=FALSE,include=F}
-PEC_Low <- PEC_filtered %>%
-  subset(PEC_filtered$high_adopt==0)
-glimpse(PEC_Low)
-```
-
-```{r,message=FALSE,include=F}
+```{r,message=FALSE,echo=F}
 ea.summary<-PEC_Low |>  
   
   summarise(n = length(na.omit(kwh_total)),
@@ -185,19 +291,10 @@ ea.summary<-PEC_Low |>
 ea.summary 
 ```
 
+<br>
+Figure 5: Comparison of Low PEC Enrollment Area's Energy Consumption in 2015 and 2020
 
-
-```{r, filtering by years,message=FALSE,include=F}
-PEC_Low_filtered <- PEC_Low %>%
-  group_by(canton,year)%>%
-  summarise(kwh_total=sum(kwh_total))%>%
-  filter(year=='2015'|year=='2020')
-  
-  
-head(PEC_Low_filtered)
-```
-
-```{r,echo = FALSE,include=F}
+```{r,echo = FALSE, message=FALSE, warning=FALSE}
 PEC_Low_filtered<-PEC_Low_filtered %>%
   mutate(year=factor(year, levels=c("2015","2020")))
 
@@ -206,94 +303,44 @@ geom_histogram(col="black")+
 scale_fill_manual(values=c("royalblue", "gray"))
 
 p + facet_grid(year ~ .)+
-labs(x="Energy consumption (kWh)", title="Comaprison of energy consumption in low adopted area",
+labs(
+  x="Energy consumption (kWh)", 
+  title="Comaprison of energy consumption", 
+  subtitle = "Low adopted area (2015 & 2020)",
      fill="year") +
  theme(
-    plot.title = element_text(size = 8, color = "navy", hjust = 0.5),
-    axis.title.x = element_text(size = 8, color = "black"),
-    axis.title.y = element_text(size = 8, color = "black")
+    plot.title = element_text(size = 12, color = "black", hjust = 0.5),
+    axis.title.x = element_text(size = 10, color = "black"),
+    axis.title.y = element_text(size = 10, color = "black")
   )
 ```
 
+<br>
+Figure 6: Difference in Low PEC Adopted Area's Energy Consumption (2020-2015)
 
-```{r,message=FALSE,include=F}
-PEC_Low_filtered_wide<-PEC_Low_filtered %>%
-  dplyr::select(canton, year, kwh_total)%>%
-  pivot_wider(names_from = year, values_from = kwh_total) %>%
-  rename(first_year="2015")%>%
-  rename(last_year="2020")
-
-PEC_Low_filtered_wide
-```
- a. Comparison of means results
-
-```{r chunk, Paired t-test,message=FALSE,include=F}
-t.test(PEC_Low_filtered_wide$first_year, PEC_Low_filtered_wide$last_year,alternative="greater", paired=T)
-```
-
-The paired t-test in low adoptation areas suggested no significant increase(t = -2.7019, df = 52, p-value = 0.9954). 
-```{r,message=FALSE,include=F}
-PEC_Low_filtered_wide<-PEC_Low_filtered_wide  |>
-      mutate(diff=last_year-first_year)
-
-head(PEC_Low_filtered_wide)
-```
-b. Discussion of assumptions
-```{r,echo = FALSE,include=F}
+```{r,echo = FALSE, message=FALSE}
 ggplot(PEC_Low_filtered_wide, aes(x = diff)) +
-  geom_histogram(fill = "lightblue", color = "black", bins = 100) +
+  geom_histogram(fill = "lightblue", color = "black", bins = 20) +
   labs(
     title = "Electricity Consumption Levels in low Adoption Areas",
     subtitle = "Difference between 2015 and 2020",
     x = "Difference (2020 - 2015)"
   ) +
   theme_minimal() +
-  theme(plot.title = element_text(size = 8, color = "navy"))
+  theme(plot.title = element_text(size = 12, color = "black"))
 ```
-The difference between in low adoption areas showed right-skewed distribution, the majority had little consumption chage and only small number of cantons showed consumption increase. It indicates the data are non-normally distributed.
+<br>
+Attribution:
 
-```{r,message=FALSE,include=F}
-shapiro.test(PEC_Low_filtered_wide$diff)
-skewness(PEC_Low_filtered_wide$diff)
-```
-The Shapiro-Wilk test showed severe non-normality(W = 0.42532, p-value = 4.229e-13).
-```{r,logged values,message=FALSE,include=F}
-PEC_Low_filtered_wide<-PEC_Low_filtered_wide|>
-    mutate(log.first_year=log(first_year),    				       	
-           log.last_year=log(last_year), 
-			     diff.in.log=(log.first_year-log.last_year),
-           log.ratio=log(first_year/last_year))
-head(PEC_Low_filtered_wide, 6)
-```
-After log transformation, the paired t-test still indicated we cannot reject the null hypothesis(t = -4.2235, df = 52, p-value = 1). The mean difference was negative value, suggesting the electricity consumption rather decreased. 
-```{r,echo=FALSE,include=F}
-t.test(PEC_Low_filtered_wide$log.first_year, PEC_Low_filtered_wide$log.last_year, paired=TRUE, alternative = "greater")
-```
-The Shaprio-Wilk test after log transformation showed
-the data still violated normality(W = 0.68309, p-value = 2.054e-09), suggesting that nonparametric method needed for robustness. 
+Section 1 & 2: Yui Kikuchi
 
+Section 3 & 4: Jiyeong Pyo
 
-```{r,echo=FALSE,include=F}
-shapiro.test(PEC_Low_filtered_wide$diff.in.log)
-skewness(PEC_Low_filtered_wide$diff.in.log)
-```
-c. Discussion of appropriate test
- Because the Shapiro-Wilk showed non-normal even after log transformation, we conducted Wilcoxon test and the result indicated no significant shift (V = 130, p-value = 1).
-```{r,message=FALSE,echo=FALSE}
-wilcox.test(PEC_Low_filtered_wide$first_year, PEC_Low_filtered_wide$last_year, alternative="greater", paired = TRUE)
-```
+Section 5: Yui Kikuchi & Jiyeong Pyo
+<br>
+<br>
 
+**Reference:**
 
-4. Conclusion
-
-a. Scope of inference
- Since the data was measured across time, it could be not randomly sampled and limited sample size.It cannot be generalized to all regions or countries. 
- 
-b. Limitations and weaknesses
- Cantons are geographically close with each other so might influenced by weather condition and income levels which means there was a chance to be not independent units. 
- In addition, the data were collected over time in the same cantons so the observation could be correlated with the another year.
- 
-c. Real-World implications
-  Both high and low adoption areas showed no statistically meaningful increase in electricity consumption.This points out the PEC program could promote electrification without increasing energy consumption. 
-  However, selection bias caused by different socioeconomic should be handled. According to the paper, higher baseline electricity consumers were more likely to enroll(Gould et al., 2023). So the future policy makers should examine these bias before applying policy.
-
+Gould, C. F., Bejarano, M. L., De la Cuesta, B., Jack, D. W., Schlesinger, S. B., Valarezo, A., & Burke, M. (2023).
+Climate and health benefits of a transition from gas to electric cooking.
