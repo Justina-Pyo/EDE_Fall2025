@@ -32,6 +32,7 @@ library(tidyverse)
 library(lubridate)
 library(here); here()
 library(rvest)
+
 ```
 
 2. We will be scraping data from the NC DEQs Local Water Supply Planning website, specifically the Durham's 2024 Municipal Local Water Supply Plan (LWSP): 
@@ -63,7 +64,26 @@ In the code chunk below scrape these values, assigning them to four separate var
 
 ```{r scrape.the.data}
 #3 
+water_system_name <- webpage %>% 
+  html_nodes('div+ table tr:nth-child(1) td:nth-child(2)') %>% 
+  html_text()
+water_system_name
 
+PWSID <- webpage %>% 
+  html_nodes('td tr:nth-child(1) td:nth-child(5)') %>% 
+  html_text()
+PWSID
+
+Ownership <- webpage %>% 
+  html_nodes('div+ table tr:nth-child(2) td:nth-child(4)') %>% 
+  html_text()
+Ownership
+
+MGD <- webpage %>% 
+  html_nodes('th~ td+ td') %>% 
+  html_text()%>%
+  as.numeric()
+MGD
 
 ```
 
@@ -79,9 +99,25 @@ In the code chunk below scrape these values, assigning them to four separate var
 ```{r create.a.dataframe.from.scraped.data}
 #4 
 
+#Create a dataframe of withdrawals
+df_withdrawals <- data.frame("Month" = c(1,5,9,2,6,10,3,7,11,4,8,12),
+                             "Year" = rep(2024,12))
 
+df_withdrawals <- df_withdrawals %>% 
+  mutate(water_system_name= !!water_system_name,
+         PWSID = !!PWSID,
+         Ownership = !!Ownership,
+         MGD = !!MGD,
+         Date = my(paste(Month,"-",Year)))
 #5 
-
+#Plot 
+ggplot(df_withdrawals,aes(x=Date,y=MGD)) + 
+  geom_line() + 
+  geom_smooth(method="loess",se=FALSE) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b")+
+  labs(title = paste("Maximum daily withdrawals in 2024 in",water_system_name),
+       y="Withdrawal (mgd)",
+       x="Date")
 
 ```
 
@@ -95,22 +131,83 @@ In the code chunk below scrape these values, assigning them to four separate var
 ```{r construct.a.scraping.function}
 #6. 
 
-
+scrape.it <- function(PWSID, Year){
+  
+  #Retrieve the website contents 
+  the_website <- read_html(paste0('https://www.ncwater.org/WUDC/app/LWSP/report.php?pwsid=', PWSID,'&year=', Year))
+  
+  #Set the element address variables 
+  water_system_name_tag <- 'div+ table tr:nth-child(1) td:nth-child(2)'
+  PWSID_tag <- 'td tr:nth-child(1) td:nth-child(5)'
+  Ownership_tag <- 'div+ table tr:nth-child(2) td:nth-child(4)'
+  MGD_tag <- 'th~ td+ td'
+  
+  #Scrape the data items
+  water_system_name <- the_website %>% html_nodes(water_system_name_tag) %>% html_text()
+  PWSID<- the_website %>%   html_nodes(PWSID_tag) %>%  html_text()
+  Ownership <- the_website %>% html_nodes(Ownership_tag) %>% html_text()
+  MGD <- the_website %>% html_nodes(MGD_tag) %>% html_text()
+  
+  #Convert to a dataframe
+  df_withdrawals_2 <- data.frame("Month" = c(1,5,9,2,6,10,3,7,11,4,8,12), 
+                               "Year" = rep(Year,12),
+                               "Max Day Use" = as.numeric(MGD)) %>% 
+    mutate(water_system_name = !!water_system_name,
+           PWSID = !!PWSID,
+           Ownership = !!Ownership,
+           Date = my(paste(Month,"-",Year)))
+  
+  #Return the dataframe
+  return(df_withdrawals_2)
+}
 ```
 
 7. Use the function above to extract and plot max daily withdrawals for Durham (PWSID='03-32-010') for each month in 2020. Then show the structure of the dataframe with either the `str()` or the `glimpse()` function. 
 
 ```{r fetch.and.plot.Durham.2020.data}
 #7 
+Year = 2020
+PWSID= '03-32-010'
 
+the_dfs <- map(Year,scrape.it,PWSID=PWSID)
+df_durham <- bind_rows(the_dfs)
+str(df_durham)
+
+ggplot(df_durham,aes(x=Date,y=`Max.Day.Use`)) + 
+  geom_line() + 
+  geom_smooth(method="loess",se=FALSE) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b")+
+  labs(
+    title = paste(
+      "Max Daily Withdrawals for", water_system_name,"in",Year),
+    y="Withdrawal (mgd)",
+    x="Date"
+    )
 
 ```
 
-8. Use the function above to extract data for Cary (PWSID = '03-32-010') in 2020. Combine this data with the Durham data collected above and create a plot that compares Cary's to Durham's water withdrawals.
+8. Use the function above to extract data for Cary (PWSID = '03-92-020') in 2020. Combine this data with the Durham data collected above and create a plot that compares Cary's to Durham's water withdrawals.
 
 ```{r fetch.and.plot.Cary.2020.data}
 #8 
+#Extract for Cary
+Year = 2020
+PWSID= '03-92-020'
 
+cary <- map(Year,scrape.it,PWSID=PWSID)
+df_cary <- bind_rows(cary)
+str(df_cary)
+
+#combine df
+df_cary_durham  <- bind_rows(df_cary,df_durham)
+
+#Plot
+ggplot(df_cary_durham,aes(x=Date,y=`Max.Day.Use`,color=water_system_name)) + 
+  geom_line() + 
+  geom_smooth(method="loess",se=FALSE) +
+  labs(title = "Cary vs Durham: Max Daily Withdrawals in",Year,
+       y="Withdrawal (mgd)",
+       x="Date")
 
 ```
 
@@ -121,6 +218,15 @@ In the code chunk below scrape these values, assigning them to four separate var
 
 ```{r fetch.and.plot.Cary.multiyear.data }
 #9 
+#Extract for Cary
+Year = rep(2018:2023)
+PWSID= '03-92-020'
+
+cary <- map(Year,scrape.it,PWSID=PWSID)
+df_cary <- bind_rows(cary)
+str(df_cary)
+cary_dfs <- map2(Year, PWSID, scrape.it) %>%
+   bind_rows(df_cary)
 
 
 ```
