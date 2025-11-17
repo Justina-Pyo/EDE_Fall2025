@@ -1,8 +1,11 @@
 ---
-title: "Assignment 10: Data Scraping"
+title: 'Assignment 10: Data Scraping'
 author: "Jiyeong Pyo"
-output: pdf_document
-editor_options: 
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+editor_options:
   chunk_output_type: console
 ---
 
@@ -134,7 +137,8 @@ ggplot(df_withdrawals,aes(x=Date,y=MGD)) +
 scrape.it <- function(PWSID, Year){
   
   #Retrieve the website contents 
-  the_website <- read_html(paste0('https://www.ncwater.org/WUDC/app/LWSP/report.php?pwsid=', PWSID,'&year=', Year))
+  the_website <- read_html(paste0('https://www.ncwater.org/WUDC/app/LWSP/report.php?pwsid='
+                                  ,PWSID,'&year=', Year))
   
   #Set the element address variables 
   water_system_name_tag <- 'div+ table tr:nth-child(1) td:nth-child(2)'
@@ -205,7 +209,7 @@ df_cary_durham  <- bind_rows(df_cary,df_durham)
 ggplot(df_cary_durham,aes(x=Date,y=`Max.Day.Use`,color=water_system_name)) + 
   geom_line() + 
   geom_smooth(method="loess",se=FALSE) +
-  labs(title = "Cary vs Durham: Max Daily Withdrawals in",Year,
+  labs(title =paste("Cary vs Durham: Max Daily Withdrawals in",Year),
        y="Withdrawal (mgd)",
        x="Date")
 
@@ -219,18 +223,27 @@ ggplot(df_cary_durham,aes(x=Date,y=`Max.Day.Use`,color=water_system_name)) +
 ```{r fetch.and.plot.Cary.multiyear.data }
 #9 
 #Extract for Cary
-Year = rep(2018:2023)
+Year = c(2018:2023)
 PWSID= '03-92-020'
 
-cary <- map(Year,scrape.it,PWSID=PWSID)
-df_cary <- bind_rows(cary)
-str(df_cary)
-cary_dfs <- map2(Year, PWSID, scrape.it) %>%
-   bind_rows(df_cary)
+cary <- map2(PWSID, Year, scrape.it) %>% 
+  bind_rows()
+str(cary)
+
+#Plot
+ggplot(cary,aes(x=Date,y=`Max.Day.Use`)) + 
+  geom_line() + 
+  geom_smooth(method="loess",se=FALSE) +
+  scale_x_date(date_breaks = "1 year",date_labels = "%Y")+
+  labs(title = paste("Max Daily Withdrawals in Cary through",
+       Year[1],"-",Year[length(Year)]),
+       y="Withdrawal (mgd)",
+       x="Year")
 
 
 ```
 
 Question: Just by looking at the plot (i.e. not running statistics), does Cary have a trend in water usage over time?
-> Answer:
+<br>
+> Answer: It seems that Cary do have a strong seasonality in water usage over time. Cary's water withdrawals surge in summer season while there is no distinctive long term trend.
 >
